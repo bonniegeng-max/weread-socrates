@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 伴读 · 阅读教练</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: #FDFBF7;
+  --card: #FFFFFF;
+  --text: #2C2C2C;
+  --text-muted: #8B8682;
+  --text-light: #B0AAA4;
+  --accent: #B8543A;
+  --accent-hover: #9A3F2A;
+  --accent-soft: rgba(184,84,58,0.08);
+  --accent-soft-hover: rgba(184,84,58,0.14);
+  --border: #E8E4DD;
+  --border-light: #F0ECE5;
+  --success: #5B8C5A;
+  --warning: #D4A853;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --font-display: "Georgia","Noto Serif SC","Source Han Serif SC",serif;
+  --font-ui: -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --font-mono: "SF Mono","Cascadia Code","JetBrains Mono",monospace;
+  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  line-height: 1.7;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+/* Header */
+.app-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.app-header h1 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.app-header .subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.settings-btn {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: all var(--transition);
+}
+.settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+.settings-btn.configured { border-color: var(--success); color: var(--success); }
+
+/* Mode Tabs */
+.mode-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+.mode-tab {
+  flex: 1;
+  padding: 14px 16px;
+  text-align: center;
+  font-size: 14px;
+  font-family: var(--font-ui);
+  background: var(--card);
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all var(--transition);
+  border-bottom: 2px solid transparent;
+}
+.mode-tab:hover { color: var(--text); background: var(--bg); }
+.mode-tab.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+  background: var(--accent-soft);
+}
+.mode-tab .tab-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+.mode-tab .tab-label { font-size: 12px; color: inherit; }
+
+/* Cards */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+/* Search Mode */
+.search-input-wrap {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.search-input-wrap input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-family: var(--font-ui);
+  color: var(--text);
+  background: var(--bg);
+  transition: all var(--transition);
+}
+.search-input-wrap input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.search-input-wrap input::placeholder { color: var(--text-light); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-secondary { background: var(--accent-soft); color: var(--accent); }
+.btn-secondary:hover:not(:disabled) { background: var(--accent-soft-hover); }
+.btn-outline {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.btn-outline:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Search Results */
+.search-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.search-meta .book-cover {
+  width: 40px;
+  height: 54px;
+  border-radius: 4px;
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+}
+.search-meta .book-info h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.search-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  line-height: 1.6;
+}
+
+.highlight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+.highlight-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+.highlight-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.highlight-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.highlight-card .hl-text {
+  font-family: var(--font-display);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text);
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.highlight-card .hl-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-light);
+}
+.highlight-card .hl-count {
+  color: var(--accent);
+  font-weight: 500;
+}
+.highlight-card .hl-chapter {
+  color: var(--text-muted);
+}
+.highlight-card .select-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: transparent;
+  transition: all var(--transition);
+  background: var(--bg);
+}
+.highlight-card.selected .select-badge {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Selected Passage */
+.selected-passage {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--text);
+  margin-bottom: 16px;
+  position: relative;
+}
+.selected-passage .passage-label {
+  font-size: 11px;
+  font-family: var(--font-ui);
+  color: var(--accent);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.selected-passage .clear-passage {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+}
+
+/* Paste Mode */
+.textarea-wrap {
+  position: relative;
+}
+.textarea-wrap textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  line-height: 1.8;
+  font-family: var(--font-ui);
+  color: var(--text);
+  background: var(--bg);
+  resize: vertical;
+  transition: all var(--transition);
+}
+.textarea-wrap textarea::placeholder { color: var(--text-light); }
+.textarea-wrap textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Action Buttons */
+.action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.action-row .btn { flex: 1; justify-content: center; min-width: 140px; }
+
+/* Result Area */
+.result-area { margin-top: 24px; }
+
+/* Section labels & dividers (in results card) */
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+.section-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 24px 0;
+}
+.mindmap-section { margin-top: 8px; }
+
+/* Mindmap toolbar */
+.mindmap-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.mindmap-toolbar .toolbar-spacer { flex: 1; }
+.mindmap-toolbar .tb-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.mindmap-toolbar .tb-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.mindmap-toolbar .tb-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.mindmap-edit-area {
+  width: 100%;
+  min-height: 300px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg-alt);
+  color: var(--text);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.mindmap-edit-area:focus {
+  border-color: var(--accent);
+}
+
+/* Mindmap & Graph */
+.mindmap-result {
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 20px;
+  overflow-x: auto;
+  min-height: 400px;
+}
+.mindmap-result .mermaid-wrapper {
+  min-width: 900px;
+  padding: 12px 0;
+  display: flex;
+  justify-content: center;
+}
+.mindmap-result .mermaid {
+  display: inline-block;
+}
+.mindmap-result .mermaid svg {
+  max-width: none !important;
+  min-height: 400px;
+  height: auto !important;
+}
+
+/* Conversation */
+.qa-container {
+  background: var(--card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.qa-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.qa-header span { color: var(--accent); font-weight: 600; }
+.qa-messages {
+  max-height: 450px;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.message {
+  display: flex;
+  gap: 10px;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.message.ai { align-self: flex-start; }
+.message.user { align-self: flex-end; flex-direction: row-reverse; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+}
+.message.ai .avatar { background: var(--accent-soft); }
+.message.user .avatar { background: #F0ECE5; }
+.bubble {
+  max-width: 85%; padding: 12px 16px;
+  border-radius: var(--radius); font-size: 14px; line-height: 1.7;
+}
+.message.ai .bubble { background: var(--bg); border: 1px solid var(--border-light); }
+.message.user .bubble { background: var(--accent-soft); }
+.qa-input-row {
+  padding: 12px 20px; border-top: 1px solid var(--border-light);
+  display: flex; gap: 8px;
+}
+.qa-input-row textarea {
+  flex: 1; padding: 10px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 14px; font-family: var(--font-ui); resize: none;
+  min-height: 40px; max-height: 100px;
+  background: var(--bg); color: var(--text);
+}
+.qa-input-row textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.qa-input-row .send-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent); color: #fff; border: none;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all var(--transition);
+}
+.qa-input-row .send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+.qa-input-row .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Loading */
+.loading-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 0; color: var(--text-muted); font-size: 13px;
+}
+.loading-dots { display: flex; gap: 3px; }
+.loading-dots span {
+  width: 5px; height: 5px; background: var(--accent);
+  border-radius: 50%; animation: bounce 1.4s infinite ease-in-out;
+}
+.loading-dots span:nth-child(1) { animation-delay: 0s; }
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce {
+  0%,80%,100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* Error / Status */
+.status-msg {
+  padding: 12px 16px; border-radius: var(--radius);
+  font-size: 13px; line-height: 1.6;
+}
+.status-msg.info { background: #F0F7FF; color: #3B6CB4; }
+.status-msg.error { background: #FFF0F0; color: #B8543A; }
+.status-msg.success { background: #F0F7F0; color: #386B38; }
+.status-msg.warning { background: #FFF8F0; color: #8B6B38; }
+
+/* Modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.2); backdrop-filter: blur(3px);
+  z-index: 100; align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--card); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); padding: 28px;
+  max-width: 420px; width: 90%;
+}
+.modal h3 { font-family: var(--font-display); font-size: 17px; font-weight: 400; margin-bottom: 4px; }
+.modal p { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+.modal label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; margin-top: 12px; }
+.modal select, .modal input {
+  width: 100%; padding: 10px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 14px; font-family: var(--font-ui); color: var(--text);
+  background: var(--bg); transition: border var(--transition);
+}
+.modal select:focus, .modal input:focus { outline: none; border-color: var(--accent); }
+.modal input.api-key { font-family: var(--font-mono); font-size: 13px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: #fff; padding: 10px 24px;
+  border-radius: 20px; font-size: 13px; z-index: 200;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.toast.show { opacity: 1; }
+
+/* Server status badge */
+.server-status {
+  font-size: 11px;
+  color: var(--text-light);
+  text-align: center;
+  margin-top: 8px;
+}
+.server-status .dot {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; margin-right: 4px;
+}
+.server-status .dot.online { background: var(--success); }
+.server-status .dot.offline { background: #CCC; }
+
+.hidden { display: none !important; }
+
+@media (max-width: 500px) {
+  .app-container { padding: 24px 16px 60px; }
+  .action-row { flex-direction: column; }
+  .search-input-wrap { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- Header -->
+  <div class="app-header">
+    <h1>AI 伴读</h1>
+    <p class="subtitle">你的苏格拉底式阅读教练</p>
+    <button class="settings-btn" id="settingsBtn" onclick="toggleSettings()">⚙️ 设置</button>
+  </div>
+
+  <!-- Mode Tabs -->
+
+  <!-- ====== SEARCH MODE ====== -->
+  <div id="searchMode">
+    <!-- Step 1: Search -->
+    <div class="card" id="searchStep">
+      <div class="search-input-wrap">
+        <input type="text" id="searchInput" placeholder="输入书名，比如「关键跃升」「三体」…" onkeydown="if(event.key==='Enter')searchBook()">
+        <button class="btn btn-primary" onclick="searchBook()">🔍 搜索</button>
+      </div>
+      <div id="searchStatus"></div>
+    </div>
+
+    <!-- Step 2: Results -->
+    <div class="card hidden" id="resultsStep">
+      <!-- Book meta -->
+      <div class="search-meta" id="searchMeta"></div>
+
+      <!-- Mindmap section (top, auto-generated) -->
+      <div id="mindmapSection" class="mindmap-section">
+        <div class="section-label">📚 全书结构</div>
+        <div id="mindmapContent"></div>
+      </div>
+
+      <!-- Divider -->
+      <div class="section-divider"></div>
+
+      <!-- Highlights section (appendix) -->
+      <div class="section-label">📝 热门划线 · 多选后可开始对话</div>
+      <div class="highlight-list" id="highlightList"></div>
+      <div class="action-row" style="margin-top:16px">
+        <button class="btn btn-secondary" id="btnChatSearch" disabled onclick="startChat()">
+          💬 开始对话<span id="chatHighlightCount" style="font-size:11px;opacity:0.7;margin-left:4px"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== RESULT AREA ====== -->
+  <div id="resultArea" class="result-area hidden">
+    <div class="selected-passage hidden" id="selectedPassage">
+      <span class="passage-label">📖 当前选段</span>
+      <button class="clear-passage" onclick="clearSelection()" title="清除">×</button>
+      <div id="passageText"></div>
+    </div>
+    <div id="resultContent"></div>
+  </div>
+
+  <div class="server-status">
+    <span class="dot offline" id="serverDot"></span>
+    <span id="serverMsg">检查服务状态…</span>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h3>⚙️ API 设置</h3>
+    <p>配置大模型 API，用于生成思维导图和引导提问。</p>
+
+    <label>模型供应商</label>
+    <select id="modelProvider" onchange="onProviderChange()">
+      <option value="zhipu">智谱 GLM（推荐）</option>
+      <option value="deepseek">DeepSeek</option>
+    </select>
+
+    <label id="apiKeyLabel">智谱 API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="粘贴你的 API Key" class="api-key">
+    <p style="font-size:11px;color:var(--text-light);margin-top:4px">
+      获取地址：<a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color:var(--accent)">open.bigmodel.cn</a>
+    </p>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="toggleSettings()">取消</button>
+      <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ STATE ============
+const PROVIDERS = {
+  zhipu: {
+    name: '智谱 GLM',
+    endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    model: 'glm-4-flash',
+    keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    endpoint: 'https://api.deepseek.com/v1/chat/completions',
+    model: 'deepseek-chat',
+    keyUrl: 'https://platform.deepseek.com/api_keys',
+  },
+};
+
+let state = {
+  mode: 'search',
+  provider: localStorage.getItem('ai_provider') || 'zhipu',
+  apiKey: '',
+  apiKeyZhipu: localStorage.getItem('ai_key_zhipu') || '',
+  apiKeyDeepseek: localStorage.getItem('ai_key_deepseek') || '',
+  selectedText: '',
+  conversationHistory: [],
+  questionRound: 0,
+  isProcessing: false,
+};
+
+// Init
+state.apiKey = state.provider === 'zhipu' ? state.apiKeyZhipu : state.apiKeyDeepseek;
+document.getElementById('modelProvider').value = state.provider;
+document.getElementById('apiKeyInput').value = state.apiKey;
+updateSettingsUI();
+checkServer();
+
+// ============ SERVER CHECK ============
+async function checkServer() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    const dot = document.getElementById('serverDot');
+    const msg = document.getElementById('serverMsg');
+    if (d.ok && d.weread) {
+      dot.className = 'dot online';
+      msg.textContent = '微信读书服务已连接';
+    } else if (d.ok) {
+      dot.className = 'dot offline';
+      msg.textContent = '微信读书 API 未配置';
+    }
+  } catch(e) {
+    document.getElementById('serverDot').className = 'dot offline';
+    document.getElementById('serverMsg').innerHTML = 'Preview 面板不支持访问本地服务，请在浏览器中打开 <a href="http://localhost:3456" target="_blank" style="color:var(--accent)">http://localhost:3456</a>';
+  }
+}
+
+// ============ MODE SWITCH (simplified: search only) ============
+function switchMode(mode) {
+  // Only 'search' mode exists now
+  state.mode = 'search';
+  clearSelection();
+}
+
+// ============ BOOK SEARCH ============
+async function searchBook() {
+  const keyword = document.getElementById('searchInput').value.trim();
+  if (!keyword) return;
+
+  const status = document.getElementById('searchStatus');
+  status.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在搜索「' + keyword + '」…</div>';
+
+  try {
+    // Search
+    const sr = await wereadCall('/store/search', { keyword, count: 3 });
+    if (sr.errcode) throw new Error(sr.errmsg || '搜索失败');
+
+    const books = (sr.results || []).flatMap(g => g.books || []);
+    if (!books.length) {
+      status.innerHTML = '<div class="status-msg warning">未找到「' + keyword + '」，试试其他书名</div>';
+      return;
+    }
+
+    const book = books[0].bookInfo;
+    window._currentBook = { title: book.title, author: book.author, bookId: book.bookId };
+    document.getElementById('searchStep').classList.add('hidden');
+    document.getElementById('resultsStep').classList.remove('hidden');
+
+    // Show book meta
+    document.getElementById('searchMeta').innerHTML = `
+      <img class="book-cover" src="${book.cover}" alt="封面" onerror="this.style.display='none'">
+      <div class="book-info">
+        <h4>${book.title}</h4>
+        <div style="font-size:12px;color:var(--text-muted)">${book.author} · 评分 ${(book.newRating/10).toFixed(1)} · ${book.newRatingCount}人评价</div>
+      </div>
+    `;
+
+    // Get highlights + book info + chapters in parallel
+    // Show loading state inside resultsStep (searchStep is hidden now)
+    document.getElementById('mindmapContent').innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在获取书籍详情…</div>';
+    document.getElementById('highlightList').innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在获取热门划线…</div>';
+
+    const [hr, bi, ci] = await Promise.all([
+      wereadCall('/book/bestbookmarks', { bookId: book.bookId, chapterUid: 0, synckey: 0 }),
+      wereadCall('/book/info', { bookId: book.bookId }),
+      wereadCall('/book/chapterinfo', { bookId: book.bookId }),
+    ]);
+
+    // Store book detail for mindmap
+    window._currentBook.intro = bi.intro || '';
+    window._currentBook.chapters = (ci.chapters || []).map(c => ({
+      title: c.title,
+      level: c.level || 1,
+      chapterIdx: c.chapterIdx
+    }));
+
+    if (hr.errcode) throw new Error(hr.errmsg);
+
+    renderHighlights(hr.items || [], hr.chapters || []);
+
+    // Auto-generate mindmap after search
+    startBookMindmap();
+  } catch(e) {
+    let msg = e.message;
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      msg = '无法连接到本地服务。请在浏览器中打开 <a href="http://localhost:3456" target="_blank" style="color:var(--accent)">http://localhost:3456</a> 使用此功能（Preview 面板不支持）。';
+    }
+    const errHtml = '<div class="status-msg error">' + msg + '</div>';
+    // If results step is visible, show error there; otherwise show in search status
+    if (document.getElementById('resultsStep').classList.contains('hidden')) {
+      status.innerHTML = errHtml;
+    } else {
+      document.getElementById('mindmapContent').innerHTML = errHtml;
+      document.getElementById('highlightList').innerHTML = '';
+    }
+  }
+}
+
+function renderHighlights(items, chapters) {
+  const chapterMap = {};
+  (chapters || []).forEach(c => { chapterMap[c.chapterUid] = c.title; });
+
+  const list = document.getElementById('highlightList');
+  list.innerHTML = items.map((item, i) => {
+    if (!item.markText) return '';
+    const chapter = chapterMap[item.chapterUid] || '';
+    return `
+      <div class="highlight-card" data-idx="${i}" onclick="toggleHighlight(${i}, event)">
+        <div class="select-badge">✓</div>
+        <div class="hl-text">${escapeHtml(item.markText)}</div>
+        <div class="hl-meta">
+          <span class="hl-count">🔥 ${(item.totalCount || 0).toLocaleString()} 人划线</span>
+          ${chapter ? `<span class="hl-chapter">${chapter}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  window._highlights = items;
+  window._selectedIdxs = new Set();
+  document.getElementById('btnChatSearch').disabled = true;
+  document.getElementById('chatHighlightCount').textContent = '';
+}
+
+function toggleHighlight(idx, event) {
+  const card = document.querySelector(`.highlight-card[data-idx="${idx}"]`);
+  if (!card) return;
+
+  if (card.classList.contains('selected')) {
+    card.classList.remove('selected');
+    window._selectedIdxs.delete(idx);
+  } else {
+    card.classList.add('selected');
+    window._selectedIdxs.add(idx);
+  }
+
+  const count = window._selectedIdxs.size;
+  const btn = document.getElementById('btnChatSearch');
+  const counter = document.getElementById('chatHighlightCount');
+  btn.disabled = count === 0;
+  counter.textContent = count > 0 ? `（已选 ${count} 条）` : '';
+
+  // Update selected text (don't show result area yet — only on chat start)
+  if (count > 0) {
+    const texts = Array.from(window._selectedIdxs).sort((a,b)=>a-b).map(i => window._highlights[i].markText);
+    state.selectedText = texts.join('\n\n---\n\n');
+  } else {
+    state.selectedText = '';
+    // Hide chat area if visible
+    document.getElementById('resultArea').classList.add('hidden');
+    document.getElementById('selectedPassage').classList.add('hidden');
+    document.getElementById('resultContent').innerHTML = '';
+  }
+  state.conversationHistory = [];
+  state.questionRound = 0;
+}
+
+// ============ WEREAD PROXY ============
+async function wereadCall(apiName, params) {
+  const resp = await fetch('/api/weread', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_name: apiName, ...params }),
+  });
+  return resp.json();
+}
+
+// ============ ACTIONS ============
+function getCurrentText() {
+  return state.selectedText || '';
+}
+
+function clearSelection() {
+  state.selectedText = '';
+  state.conversationHistory = [];
+  state.questionRound = 0;
+  window._selectedIdxs = new Set();
+  document.getElementById('resultArea').classList.add('hidden');
+  document.getElementById('selectedPassage').classList.add('hidden');
+  document.getElementById('resultContent').innerHTML = '';
+  document.getElementById('mindmapContent').innerHTML = '';
+
+  document.getElementById('searchStep').classList.remove('hidden');
+  document.getElementById('resultsStep').classList.add('hidden');
+  document.getElementById('searchStatus').innerHTML = '';
+}
+
+async function startBookMindmap() {
+  const book = window._currentBook;
+  const content = document.getElementById('mindmapContent');
+
+  if (!book) {
+    content.innerHTML = '<div class="status-msg warning">请先搜索一本书。</div>';
+    return;
+  }
+  if (!state.apiKey) {
+    content.innerHTML = '<div class="status-msg warning">⚠️ 还没有配置 API Key，请先点击右上角「⚙️ 设置」配置智谱或 DeepSeek 的 Key。</div>';
+    toggleSettings();
+    return;
+  }
+
+  content.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在为《' + book.title + '》生成全书结构图…</div>';
+
+  try {
+    // Build context from book intro + chapters
+    let context = '';
+    if (book.intro) {
+      context += '【书籍简介】\n' + book.intro.slice(0, 1500) + '\n\n';
+    }
+    if (book.chapters && book.chapters.length) {
+      context += '【章节目录】\n';
+      book.chapters.forEach(c => {
+        const indent = '  '.repeat((c.level || 1) - 1);
+        context += `${indent}${c.title}\n`;
+      });
+    }
+
+    const result = await callLLM([
+      { role: 'system', content: BOOK_MINDMAP_SYSTEM + '\n\n' + BOOK_MINDMAP_EXAMPLE },
+      { role: 'user', content: `请为以下书籍生成可视化图表：\n书名：《${book.title}》\n作者：${book.author}\n\n${context}\n\n请基于以上信息判断书籍类型（虚构/非虚构），选择合适的图表类型（mindmap 结构导图 或 graph 人物关系图/情节图），生成一个丰富、具体、有深度的可视化图表。不要泛泛而谈，要体现这本书的独特性。` },
+    ], 0.3);
+
+    const mermaidMatch = result.match(/```mermaid\n?([\s\S]*?)```/) || result.match(/mindmap[\s\S]*/);
+    const mermaidCode = mermaidMatch ? (mermaidMatch[1] || mermaidMatch[0]).trim() : result.trim();
+
+    // Store for edit/copy/export
+    window._lastMermaidCode = mermaidCode;
+    window._mindmapBookTitle = book.title;
+
+    renderMindmapPreview(mermaidCode, book.title);
+  } catch(e) {
+    content.innerHTML = '<div class="status-msg error">生成失败：' + e.message + '</div>';
+  }
+}
+
+// ============ MINDMAP VIEW / EDIT / EXPORT ============
+function renderMindmapPreview(code, bookTitle) {
+  const content = document.getElementById('mindmapContent');
+  const id = 'mindmap-' + Date.now();
+
+  content.innerHTML = `
+    <div class="mindmap-toolbar">
+      <button class="tb-btn active" id="btnViewMode" onclick="toggleMindmapMode('view')">📊 预览</button>
+      <button class="tb-btn" id="btnEditMode" onclick="toggleMindmapMode('edit')">✏️ 编辑</button>
+      <div class="toolbar-spacer"></div>
+      <button class="tb-btn" onclick="copyMermaidCode()">📋 复制代码</button>
+      <button class="tb-btn" onclick="downloadMermaidPng()">🖼️ 导出PNG</button>
+    </div>
+    <div class="mindmap-result" id="mindmapViewArea">
+      <div class="mermaid-wrapper">
+        <div class="mermaid" id="${id}">${escapeHtml(code)}</div>
+      </div>
+    </div>
+    <div id="mindmapEditArea" style="display:none">
+      <textarea class="mindmap-edit-area" id="mermaidCodeEditor">${escapeHtml(code)}</textarea>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="tb-btn active" onclick="rerenderMindmap()">🔄 重新渲染</button>
+        <span style="font-size:11px;color:var(--text-light);line-height:28px">编辑后点击「重新渲染」查看效果</span>
+      </div>
+    </div>`;
+
+  setTimeout(() => initMermaidElement(id, code), 150);
+}
+
+function initMermaidElement(id, fallbackCode) {
+  try {
+    mermaid.init(undefined, document.getElementById(id));
+    const el = document.getElementById(id);
+    const svg = el && el.querySelector('svg');
+    if (svg) {
+      svg.style.maxWidth = 'none';
+      svg.style.height = 'auto';
+      const vb = svg.getAttribute('viewBox');
+      if (vb) {
+        const parts = vb.split(' ').map(Number);
+        if (parts[3] && parts[3] < 300) {
+          const scale = 400 / parts[3];
+          svg.setAttribute('viewBox', `${parts[0]} ${parts[1]} ${parts[2]} ${parts[3] * scale}`);
+        }
+      }
+    }
+  } catch(e) {
+    document.getElementById(id).innerHTML = '<pre style="font-size:12px;color:var(--text-muted)">' + escapeHtml(fallbackCode) + '</pre>';
+  }
+}
+
+function toggleMindmapMode(mode) {
+  const viewArea = document.getElementById('mindmapViewArea');
+  const editArea = document.getElementById('mindmapEditArea');
+  const btnView = document.getElementById('btnViewMode');
+  const btnEdit = document.getElementById('btnEditMode');
+
+  if (mode === 'edit') {
+    viewArea.style.display = 'none';
+    editArea.style.display = 'block';
+    btnView.classList.remove('active');
+    btnEdit.classList.add('active');
+  } else {
+    viewArea.style.display = 'block';
+    editArea.style.display = 'none';
+    btnView.classList.add('active');
+    btnEdit.classList.remove('active');
+  }
+}
+
+function rerenderMindmap() {
+  const editor = document.getElementById('mermaidCodeEditor');
+  const newCode = editor.value.trim();
+  if (!newCode) { showToast('代码不能为空'); return; }
+
+  window._lastMermaidCode = newCode;
+
+  // Switch to view mode
+  toggleMindmapMode('view');
+
+  // Re-render
+  const content = document.getElementById('mindmapContent');
+  const id = 'mindmap-' + Date.now();
+  const viewArea = document.getElementById('mindmapViewArea');
+  viewArea.innerHTML = `
+    <div class="mermaid-wrapper">
+      <div class="mermaid" id="${id}">${escapeHtml(newCode)}</div>
+    </div>`;
+
+  setTimeout(() => initMermaidElement(id, newCode), 150);
+  showToast('已重新渲染');
+}
+
+function copyMermaidCode() {
+  const code = window._lastMermaidCode || '';
+  const editor = document.getElementById('mermaidCodeEditor');
+  const text = (editor && editor.offsetParent !== null) ? editor.value : code;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('代码已复制到剪贴板');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('代码已复制');
+  });
+}
+
+function downloadMermaidPng() {
+  // Try multiple selectors to find the SVG
+  let svg = document.querySelector('#mindmapViewArea svg');
+  if (!svg) {
+    const wrapper = document.querySelector('#mindmapViewArea .mermaid');
+    svg = wrapper && wrapper.querySelector('svg');
+  }
+  if (!svg) {
+    const allSvgs = document.querySelectorAll('.mindmap-result svg, .mermaid svg');
+    svg = allSvgs[allSvgs.length - 1]; // Get the last one (most recently rendered)
+  }
+  if (!svg) { showToast('没有可导出的图表，请稍等渲染完成后再试'); return; }
+
+  showToast('正在生成 PNG…');
+
+  try {
+    // Get SVG dimensions
+    const rect = svg.getBoundingClientRect();
+    const svgWidth = rect.width || parseInt(svg.getAttribute('width')) || 800;
+    const svgHeight = rect.height || parseInt(svg.getAttribute('height')) || 600;
+
+    // Clone and prepare SVG for export
+    const svgClone = svg.cloneNode(true);
+
+    // Ensure SVG has proper xmlns and dimensions
+    if (!svgClone.getAttribute('xmlns')) svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    if (!svgClone.getAttribute('width')) svgClone.setAttribute('width', svgWidth);
+    if (!svgClone.getAttribute('height')) svgClone.setAttribute('height', svgHeight);
+
+    // Inline styles for better compatibility
+    const svgData = new XMLSerializer().serializeToString(svgClone);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    let done = false;
+
+    img.onload = function() {
+      if (done) return;
+      done = true;
+
+      const canvas = document.createElement('canvas');
+      const scale = 2; // High-res
+      const cw = Math.max(img.width || svgWidth, 400);
+      const ch = Math.max(img.height || svgHeight, 300);
+      canvas.width = cw * scale;
+      canvas.height = ch * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+
+      canvas.toBlob(function(blob) {
+        if (!blob) {
+          showToast('导出失败：Canvas 生成失败');
+          URL.revokeObjectURL(url);
+          return;
+        }
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const title = (window._mindmapBookTitle || 'mindmap').replace(/[<>:"/\\|?*]/g, '_');
+        a.href = dlUrl;
+        a.download = title + '-导图.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(dlUrl);
+        URL.revokeObjectURL(url);
+        showToast('✅ PNG 已导出到下载文件夹');
+      }, 'image/png');
+    };
+
+    img.onerror = function() {
+      if (done) return;
+      done = true;
+      URL.revokeObjectURL(url);
+      showToast('导出失败：SVG 渲染出错。建议复制代码到 mermaid.live 导出');
+    };
+
+    // Timeout fallback
+    setTimeout(function() {
+      if (!done) {
+        done = true;
+        URL.revokeObjectURL(url);
+        showToast('导出超时。建议复制代码到 mermaid.live 导出');
+      }
+    }, 10000);
+
+    img.src = url;
+  } catch(e) {
+    showToast('导出失败：' + e.message);
+  }
+}
+
+async function startChat() {
+  const text = getCurrentText();
+  const area = document.getElementById('resultArea');
+  const content = document.getElementById('resultContent');
+  area.classList.remove('hidden');
+
+  if (!text) {
+    content.innerHTML = '<div class="status-msg warning">请先在上方勾选至少一条划线，再开始对话。</div>';
+    return;
+  }
+  if (!state.apiKey) {
+    content.innerHTML = '<div class="status-msg warning">⚠️ 还没有配置 API Key，请先点击右上角「⚙️ API 设置」配置智谱或 DeepSeek 的 Key。</div>';
+    toggleSettings();
+    return;
+  }
+
+  document.getElementById('selectedPassage').classList.remove('hidden');
+  document.getElementById('passageText').textContent = text;
+
+  state.conversationHistory = [
+    { role: 'system', content: CHAT_SYSTEM },
+    { role: 'user', content: `我正在读这段文字：\n\n${text}\n\n请开始第一轮提问。` },
+  ];
+  state.questionRound = 0;
+
+  content.innerHTML = `
+    <div class="qa-container">
+      <div class="qa-header">💬 引导式对话 · 第 <span id="roundNum">1</span>/5 轮</div>
+      <div class="qa-messages" id="qaMessages">
+        <div class="loading-row" id="qaLoading"><div class="loading-dots"><span></span><span></span><span></span></div>思考中…</div>
+      </div>
+      <div class="qa-input-row">
+        <textarea id="qaInput" placeholder="输入你的回答…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnswer()}"></textarea>
+        <button class="send-btn" id="qaSendBtn" onclick="sendAnswer()" disabled>➤</button>
+      </div>
+    </div>
+  `;
+
+  // Send first question
+  try {
+    const resp = await callLLM(state.conversationHistory, 0.8);
+    state.questionRound = 1;
+    state.conversationHistory.push({ role: 'assistant', content: resp });
+    updateQAUi(resp);
+  } catch(e) {
+    document.getElementById('qaLoading').innerHTML = '<div class="status-msg error">生成失败：' + e.message + '</div>';
+  }
+}
+
+function updateQAUi(msg) {
+  const loading = document.getElementById('qaLoading');
+  const messages = document.getElementById('qaMessages');
+  if (loading) loading.remove();
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message ai';
+  msgDiv.innerHTML = '<div class="avatar">🤖</div><div class="bubble">' + escapeHtml(msg).replace(/\n/g, '<br>') + '</div>';
+  messages.appendChild(msgDiv);
+  messages.scrollTop = messages.scrollHeight;
+
+  document.getElementById('roundNum').textContent = state.questionRound;
+  document.getElementById('qaInput').disabled = false;
+  document.getElementById('qaSendBtn').disabled = false;
+  document.getElementById('qaInput').focus();
+
+  if (state.questionRound >= 5) {
+    document.getElementById('qaInput').disabled = true;
+    document.getElementById('qaSendBtn').disabled = true;
+    document.getElementById('qaInput').placeholder = '对话已完成，你可以导出笔记';
+    // Add export button
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'btn btn-outline';
+    exportBtn.textContent = '📥 导出笔记';
+    exportBtn.style.margin = '8px 0';
+    exportBtn.onclick = exportNotes;
+    messages.appendChild(exportBtn);
+  }
+}
+
+async function sendAnswer() {
+  const input = document.getElementById('qaInput');
+  const answer = input.value.trim();
+  if (!answer || state.isProcessing || state.questionRound >= 5) return;
+
+  const messages = document.getElementById('qaMessages');
+  const userDiv = document.createElement('div');
+  userDiv.className = 'message user';
+  userDiv.innerHTML = '<div class="avatar">👤</div><div class="bubble">' + escapeHtml(answer) + '</div>';
+  messages.appendChild(userDiv);
+  messages.scrollTop = messages.scrollHeight;
+
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('qaSendBtn').disabled = true;
+
+  const loading = document.createElement('div');
+  loading.className = 'loading-row';
+  loading.id = 'qaLoading';
+  loading.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>思考中…';
+  messages.appendChild(loading);
+  messages.scrollTop = messages.scrollHeight;
+
+  state.conversationHistory.push({ role: 'user', content: answer });
+
+  try {
+    const resp = await callLLM(state.conversationHistory, 0.8);
+    state.questionRound++;
+    state.conversationHistory.push({ role: 'assistant', content: resp });
+    updateQAUi(resp);
+  } catch(e) {
+    loading.innerHTML = '<div class="status-msg error">生成失败：' + e.message + '</div>';
+    input.disabled = false;
+    document.getElementById('qaSendBtn').disabled = false;
+  }
+}
+
+function exportNotes() {
+  let md = '# AI 伴读 · 对话笔记\n\n';
+  md += '## 原文选段\n\n> ' + getCurrentText().replace(/\n/g, '\n> ') + '\n\n';
+  md += '## 对话记录\n\n';
+  state.conversationHistory.filter(m => m.role !== 'system').forEach(m => {
+    md += m.role === 'assistant' ? '**🤖 提问**：' : '**👤 回答**：';
+    md += m.content + '\n\n';
+  });
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ai-reading-notes.md'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('笔记已导出');
+}
+
+// ============ LLM CALL ============
+async function callLLM(messages, temperature = 0.7, maxTokens = 4096) {
+  const provider = PROVIDERS[state.provider];
+  let resp;
+  try {
+    resp = await fetch(provider.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+      body: JSON.stringify({ model: provider.model, messages, temperature, max_tokens: maxTokens }),
+    });
+  } catch(networkErr) {
+    throw new Error('网络请求失败（可能是 CORS 或网络问题）：' + networkErr.message + '。如果你在 Preview 面板里使用，请在 Safari 中打开 http://localhost:3456');
+  }
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API 错误 ${resp.status}（请检查 API Key 是否正确）`);
+  }
+  const data = await resp.json();
+  return data.choices[0].message.content;
+}
+
+// ============ PROMPTS ============
+const BOOK_MINDMAP_SYSTEM = `你是一个专业的阅读辅助工具。请根据用户提供的书名、作者、书籍简介和章节目录，生成可视化图表。
+
+【第一步：判断书籍类型】
+根据书名和简介，判断该书属于以下哪类：
+- A. 非虚构/商业/工具/社科/自我提升类 → 生成结构思维导图（mindmap）
+- B. 小说/虚构/推理/文学/历史叙事类 → 生成人物关系图或情节脉络图（graph LR/TD）
+
+【第二步：按类型输出】
+
+--- 类型 A：结构思维导图（mindmap） ---
+
+层级要求（至少 4 层）：
+  根节点（书名）
+    └ 一级：核心板块/心法体系（3-6个，互斥不重叠）
+        └ 二级：具体概念/方法论（每个一级下 3-5个）
+            └ 三级：具体做法/工具/案例/金句（每个二级下 2-4个）
+                └ 四级（可选）：细节要点/适用场景/注意事项
+
+MECE 原则（关键！）：
+1. 一级分支之间必须**互斥**——"责任跃升"下的内容不能出现在"沟通跃升"里
+2. 同一个概念只在一个分支下展开，不要在多个分支重复
+3. 子节点**不能重复父节点关键词**——如果父节点是"沟通跃升"，子节点不要写"沟通技巧""沟通障碍"，而要写具体方法名如"寻赏法""三明治反馈""一对一清单"
+4. 如果一个概念似乎属于多个分支，选最核心的那个放，其他分支不提
+
+节点命名：
+- 优先用书中**原创概念术语**（如"责任病毒""发动机理论""信任账户"）
+- 禁止空泛词："核心概念""关键原则""重要方法""具体做法"——这些都是废话
+- 每个节点 15 字以内，但要有信息量
+
+独特性检验：
+- 如果把书名换掉，这个导图还能用 → 说明太泛了，重写
+- 每个节点必须只有这本书才会这样写
+
+--- 类型 B：人物关系图（graph LR 或 graph TD） ---
+1. 用节点表示**人物/家族/势力/关键地点**，用连线表示关系
+2. 连线上标注关系类型（血缘/婚姻/利益/冲突/暗恋/同盟/敌对等）
+3. 推理小说标出特殊角色：死者用红色、嫌疑人用橙色、侦探用蓝色
+4. 用 subgraph 区分不同家族/阵营/时间线
+5. 主要人物用大节点([[]])，次要人物用普通节点([])
+6. 人物至少 8 个，关系线至少 12 条，越丰富越好
+7. 如果有多起案件/事件，可用不同颜色区分
+
+【通用要求】
+- 输出纯 Mermaid 代码，用 \`\`\`mermaid 包裹
+- 图表必须足够丰富、足够深，宁大勿小
+- 如果提供的简介和目录不足以判断具体内容，基于你的知识补充，但要诚实标注哪些是推测`;
+
+const BOOK_MINDMAP_EXAMPLE = `示例1（非虚构-mindmap，注意4层深度和MECE）：
+\`\`\`mermaid
+mindmap
+  root((关键跃升))
+    心法
+      责任跃升
+        发动机理论
+          让下属为自己干
+          三种发动机：责任/权力/利益
+        责任病毒
+          逃避责任的5种表现
+          猴子管理法
+      沟通跃升
+        寻赏法
+          发现下属的赏
+          三种赏：成长/认可/乐趣
+        三明治反馈
+          表扬-建议-鼓励结构
+          避免变成"但是"句式
+        一对一清单
+          每周固定30分钟
+          三个必问问题
+      关系跃升
+        信任账户
+          存钱行为：兑现承诺/主动帮忙
+          取钱行为：失信/越界/背后议论
+        冲突处理
+          对事不对人三步法
+          情绪降温后再谈
+      自我跃升
+        时间四象限
+          重要不紧急优先
+          授权第二象限任务
+        精力管理
+          识别精力高峰时段
+          恢复仪式感
+    剑法
+      用人
+        选人三标准
+          值得信任/有能力/有动力
+        育人
+          70-20-10法则
+          给安全试错空间
+      开会
+        早会15分钟站会
+        周复盘会模板
+      决策
+        70%信息即可决策
+        可逆决策快速试错
+\`\`\`
+
+示例2（虚构-graph LR，推理小说人物关系）：
+\`\`\`mermaid
+graph LR
+    subgraph 受害者
+        V1([富商 理查德]):::victim
+        V2([夫人 艾伦]):::victim
+    end
+    subgraph 家族成员
+        S1[长子 詹姆斯]
+        S2[次女 凯瑟琳]
+        S3[私生子 汤姆]
+    end
+    subgraph 外来者
+        D[侦探 波洛]
+        L[律师 菲利普]
+    end
+    V1 -->|夫妻| V2
+    V1 -->|父子| S1
+    V1 -->|父女| S2
+    V1 -->|私生| S3
+    S1 -->|争夺遗产| S2
+    S3 -->|暗恋| S2
+    S1 -.->|可疑不在场证明| V1
+    L -->|修改遗嘱| V1
+    D -->|调查| S1
+    D -->|调查| S3
+    classDef victim fill:#e74c3c,stroke:#333,color:#fff
+\`\`\``;
+
+const CHAT_SYSTEM = `你是苏格拉底式的阅读教练。你会基于用户正在阅读的文字，通过递进式提问帮助他们深度理解、联系自身经验、内化知识。
+
+规则：
+1. 每轮只提 1 个问题，开放式、有深度
+2. 问题递进路径：理解原文 → 联系自身 → 批判分析 → 实际应用 → 沉淀收获
+3. 问题必须嵌入文字的具体内容，不能是泛泛的通用题
+4. 如果用户回答较浅，下一轮降低问题难度；如果回答深入，适当加深
+5. 语气温和、好奇，像朋友聊天
+6. 共 5 轮，第 5 轮结束时帮助用户总结收获`;
+
+// ============ SETTINGS ============
+function toggleSettings() {
+  document.getElementById('settingsModal').classList.toggle('active');
+  document.getElementById('apiKeyInput').value = state.apiKey;
+  document.getElementById('modelProvider').value = state.provider;
+  updateProviderUI();
+}
+
+function onProviderChange() {
+  const p = document.getElementById('modelProvider').value;
+  state.provider = p;
+  state.apiKey = p === 'zhipu' ? state.apiKeyZhipu : state.apiKeyDeepseek;
+  document.getElementById('apiKeyInput').value = state.apiKey;
+  updateProviderUI();
+}
+
+function updateProviderUI() {
+  const p = PROVIDERS[state.provider];
+  document.getElementById('apiKeyLabel').textContent = p.name + ' API Key';
+  document.querySelector('#settingsModal p a').href = p.keyUrl;
+  document.querySelector('#settingsModal p a').textContent = new URL(p.keyUrl).hostname;
+}
+
+function saveSettings() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { showToast('请输入 API Key'); return; }
+
+  if (state.provider === 'zhipu') {
+    state.apiKeyZhipu = key;
+    localStorage.setItem('ai_key_zhipu', key);
+  } else {
+    state.apiKeyDeepseek = key;
+    localStorage.setItem('ai_key_deepseek', key);
+  }
+  state.apiKey = key;
+  localStorage.setItem('ai_provider', state.provider);
+  updateSettingsUI();
+  toggleSettings();
+  showToast(PROVIDERS[state.provider].name + ' API Key 已保存');
+}
+
+function updateSettingsUI() {
+  const btn = document.getElementById('settingsBtn');
+  if (state.apiKey) {
+    btn.classList.add('configured');
+    btn.textContent = '✓ ' + PROVIDERS[state.provider].name + ' 已配置';
+  } else {
+    btn.classList.remove('configured');
+    btn.textContent = '⚙️ 设置';
+  }
+}
+
+// ============ TOAST ============
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============ UTILS ============
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Init Mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+  mindmap: { padding: 18 },
+  flowchart: { useMaxWidth: false, htmlLabels: true }
+});
+</script>
+</body>
+</html>
