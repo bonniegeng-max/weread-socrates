@@ -752,7 +752,7 @@ async function searchBook() {
   if (!keyword) return;
 
   const status = document.getElementById('searchStatus');
-  status.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在搜索「' + keyword + '」…</div>';
+  status.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在搜索「' + escapeHtml(keyword) + '」…</div>';
 
   try {
     // Search
@@ -761,7 +761,7 @@ async function searchBook() {
 
     const books = (sr.results || []).flatMap(g => g.books || []);
     if (!books.length) {
-      status.innerHTML = '<div class="status-msg warning">未找到「' + keyword + '」，试试其他书名</div>';
+      status.innerHTML = '<div class="status-msg warning">未找到「' + escapeHtml(keyword) + '」，试试其他书名</div>';
       return;
     }
 
@@ -772,10 +772,10 @@ async function searchBook() {
 
     // Show book meta
     document.getElementById('searchMeta').innerHTML = `
-      <img class="book-cover" src="${book.cover}" alt="封面" onerror="this.style.display='none'">
+      <img class="book-cover" src="${escapeHtml(book.cover || '')}" alt="封面" onerror="this.style.display='none'">
       <div class="book-info">
-        <h4>${book.title}</h4>
-        <div style="font-size:12px;color:var(--text-muted)">${book.author} · 评分 ${(book.newRating/10).toFixed(1)} · ${book.newRatingCount}人评价</div>
+        <h4>${escapeHtml(book.title)}</h4>
+        <div style="font-size:12px;color:var(--text-muted)">${escapeHtml(book.author || '')} · 评分 ${(book.newRating/10).toFixed(1)} · ${book.newRatingCount}人评价</div>
       </div>
     `;
 
@@ -809,7 +809,7 @@ async function searchBook() {
     if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
       msg = '无法连接到本地服务。请在浏览器中打开 <a href="http://localhost:3456" target="_blank" style="color:var(--accent)">http://localhost:3456</a> 使用此功能（Preview 面板不支持）。';
     }
-    const errHtml = '<div class="status-msg error">' + msg + '</div>';
+    const errHtml = '<div class="status-msg error">' + escapeHtml(msg) + '</div>';
     // If results step is visible, show error there; otherwise show in search status
     if (document.getElementById('resultsStep').classList.contains('hidden')) {
       status.innerHTML = errHtml;
@@ -834,7 +834,7 @@ function renderHighlights(items, chapters) {
         <div class="hl-text">${escapeHtml(item.markText)}</div>
         <div class="hl-meta">
           <span class="hl-count">🔥 ${(item.totalCount || 0).toLocaleString()} 人划线</span>
-          ${chapter ? `<span class="hl-chapter">${chapter}</span>` : ''}
+          ${chapter ? `<span class="hl-chapter">${escapeHtml(chapter)}</span>` : ''}
         </div>
       </div>
     `;
@@ -923,7 +923,7 @@ async function startBookMindmap() {
     return;
   }
 
-  content.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在为《' + book.title + '》生成全书结构图…</div>';
+  content.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在为《' + escapeHtml(book.title) + '》生成全书结构图…</div>';
 
   try {
     // Build context from book intro + chapters
@@ -953,7 +953,7 @@ async function startBookMindmap() {
 
     renderMindmapPreview(mermaidCode, book.title);
   } catch(e) {
-    content.innerHTML = '<div class="status-msg error">生成失败：' + e.message + '</div>';
+    content.innerHTML = '<div class="status-msg error">生成失败：' + escapeHtml(e.message) + '</div>';
   }
 }
 
@@ -1208,7 +1208,7 @@ async function startChat() {
     state.conversationHistory.push({ role: 'assistant', content: resp });
     updateQAUi(resp);
   } catch(e) {
-    document.getElementById('qaLoading').innerHTML = '<div class="status-msg error">生成失败：' + e.message + '</div>';
+    document.getElementById('qaLoading').innerHTML = '<div class="status-msg error">生成失败：' + escapeHtml(e.message) + '</div>';
   }
 }
 
@@ -1273,7 +1273,7 @@ async function sendAnswer() {
     state.conversationHistory.push({ role: 'assistant', content: resp });
     updateQAUi(resp);
   } catch(e) {
-    loading.innerHTML = '<div class="status-msg error">生成失败：' + e.message + '</div>';
+    loading.innerHTML = '<div class="status-msg error">生成失败：' + escapeHtml(e.message) + '</div>';
     input.disabled = false;
     document.getElementById('qaSendBtn').disabled = false;
   }
@@ -1537,9 +1537,9 @@ function escapeHtml(s) {
 mermaid.initialize({
   startOnLoad: false,
   theme: 'default',
-  securityLevel: 'loose',
+  securityLevel: 'antiscript',
   mindmap: { padding: 18 },
-  flowchart: { useMaxWidth: false, htmlLabels: true }
+  flowchart: { useMaxWidth: false, htmlLabels: false }
 });
 </script>
 </body>

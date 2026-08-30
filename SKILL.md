@@ -1,7 +1,7 @@
 ---
 name: weread-socrates
 description: 启动并使用"AI 伴读 · 苏格拉底式阅读教练"本地 Web 应用。该应用对接微信读书 API，支持搜书、自动生成全书结构思维导图（非虚构→mindmap，虚构→人物关系图）、万人热门划线多选、苏格拉底式 5 轮递进引导对话、Markdown 笔记导出。当用户说"启动 AI 伴读"、"打开阅读教练"、"用伴读读《XXX》"、"微信读书思维导图"、"苏格拉底式阅读"、"帮我深读一本书"、"生成全书结构导图"、"对划线段落做引导对话"，或提到 weread / 微信读书 相关的阅读辅助需求时使用。
-version: 1.1.1
+version: 1.1.2
 metadata:
   openclaw:
     requires:
@@ -14,6 +14,16 @@ metadata:
       - name: WEREAD_API_KEY
         required: true
         description: 微信读书 API Key，用于搜书、获取书籍信息和热门划线
+    network:
+      - host: i.weread.qq.com
+        purpose: 微信读书只读接口代理（搜书、热门划线、书籍详情），由本 Skill 独占代理
+      - host: user-configured
+        purpose: 用户在「⚙️ 设置」中填写的智谱 GLM / DeepSeek / 自定义 OpenAI 兼容端点，用于生成思维导图和苏格拉底对话。仅在用户主动点击生成时调用
+    filesystem:
+      - path: ~/.zshrc ~/.bashrc
+        purpose: 启动脚本只读 grep 提取 WEREAD_API_KEY，绝不执行或写入
+      - path: <skill_dir>/assets/.server.pid
+        purpose: 本地服务 PID 文件，用于 stop.sh 精准停止本应用进程
     emoji: "📚"
     homepage: https://github.com/bonniegeng-max/weread-socrates
 ---
@@ -49,6 +59,8 @@ metadata:
 
 - **微信读书 API Key**：仅由本地服务进程读取，用于向 `i.weread.qq.com` 发起请求；本地代理只放行搜书、书籍信息、热门划线三个只读接口，其余一律拒绝。
 - **大模型 API Key**：仅保存在用户浏览器 localStorage，不经过任何第三方服务器；设置弹窗提供「清除已保存的 Key」按钮。
+- **本地服务范围**：服务仅监听 `127.0.0.1:3456`，外网不可达；PID 文件用于精准停止本应用进程，不会误杀其他占用 3456 的进程。
+- **前端渲染安全**：所有用户搜索词、书籍元数据、错误字符串、章节标题在写入 DOM 前均通过 `escapeHtml` 转义；Mermaid 渲染使用 `securityLevel: 'antiscript'`，禁用图表内脚本执行。
 - **内容外发**：对话过程中，用户勾选的划线原文会发送给用户自己选择的大模型供应商（智谱 / DeepSeek）。
 - **笔记导出**：导出的 Markdown 含书籍原文划线，属受版权保护内容，仅供个人学习使用，请勿公开传播。
 - **无外部依赖**：Mermaid 渲染库已打包在 `assets/mermaid.min.js` 本地加载，页面不加载任何第三方 CDN 脚本。

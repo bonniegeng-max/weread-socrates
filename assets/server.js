@@ -61,7 +61,7 @@ function proxyWeread(req, res) {
     for (const field of ALLOWED_APIS[apiName]) {
       if (parsed[field] !== undefined) payload[field] = parsed[field];
     }
-    payload.skill_version = '1.1.1';
+    payload.skill_version = '1.1.2';
 
     const options = {
       hostname: 'i.weread.qq.com',
