@@ -38,7 +38,7 @@ Mitigation: 导出时提示内容仅供个人学习，请勿公开传播。 <br>
 **Other Properties Related to Output:** [All processing happens on the user's machine; LLM calls go directly from the browser to the user-chosen provider.] <br>
 
 ## Skill Version(s): <br>
-1.1.0 (source: SKILL.md frontmatter) <br>
+1.1.1 (source: SKILL.md frontmatter) <br>
 
 ## Ethical Considerations: <br>
 Exported notes contain copyrighted material and are for personal study only. Users should review any generated mindmaps or dialogue summaries before relying on them, and stop the local service when finished. <br>

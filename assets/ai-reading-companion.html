@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI 伴读 · 阅读教练</title>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="mermaid.min.js"></script>
 <style>
 :root {
   --bg: #FDFBF7;
@@ -656,6 +656,9 @@ body {
   <div class="modal">
     <h3>⚙️ API 设置</h3>
     <p>配置大模型 API，用于生成思维导图和引导提问。</p>
+    <p style="font-size:11px;color:var(--text-light);background:rgba(255,193,7,.08);padding:8px 10px;border-radius:8px;line-height:1.6">
+      🔒 隐私提示：Key 仅保存在本浏览器 localStorage，不会上传到任何服务器；对话时你勾选的划线原文会发送给你选择的模型供应商（智谱 / DeepSeek）。点击「清除已保存的 Key」可随时删除。
+    </p>
 
     <label>模型供应商</label>
     <select id="modelProvider" onchange="onProviderChange()">
@@ -670,6 +673,7 @@ body {
     </p>
 
     <div class="modal-actions">
+      <button class="btn btn-outline" onclick="clearSettings()">清除已保存的 Key</button>
       <button class="btn btn-outline" onclick="toggleSettings()">取消</button>
       <button class="btn btn-primary" onclick="saveSettings()">保存</button>
     </div>
@@ -1288,7 +1292,18 @@ function exportNotes() {
   const a = document.createElement('a');
   a.href = url; a.download = 'ai-reading-notes.md'; a.click();
   URL.revokeObjectURL(url);
-  showToast('笔记已导出');
+  showToast('笔记已导出。内容含书籍原文划线，仅供个人学习，请勿公开传播');
+}
+
+function clearSettings() {
+  localStorage.removeItem('ai_key_zhipu');
+  localStorage.removeItem('ai_key_deepseek');
+  state.apiKeyZhipu = '';
+  state.apiKeyDeepseek = '';
+  state.apiKey = '';
+  document.getElementById('apiKeyInput').value = '';
+  updateSettingsUI();
+  showToast('已清除本浏览器保存的所有 API Key');
 }
 
 // ============ LLM CALL ============
