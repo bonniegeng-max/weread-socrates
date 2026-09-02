@@ -83,39 +83,64 @@ body {
 .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
 .settings-btn.configured { border-color: var(--success); color: var(--success); }
 
-/* Mode Tabs */
-.mode-tabs {
-  display: flex;
-  gap: 0;
-  background: var(--card);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
-  overflow: hidden;
-  margin-bottom: 24px;
-  box-shadow: var(--shadow-sm);
+/* Highlight source tabs */
+.source-tabs {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 8px;
+  vertical-align: middle;
 }
-.mode-tab {
-  flex: 1;
-  padding: 14px 16px;
-  text-align: center;
-  font-size: 14px;
-  font-family: var(--font-ui);
+.source-tab {
+  font-size: 12px;
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
   background: var(--card);
-  border: none;
-  cursor: pointer;
   color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-ui);
   transition: all var(--transition);
-  border-bottom: 2px solid transparent;
 }
-.mode-tab:hover { color: var(--text); background: var(--bg); }
-.mode-tab.active {
+.source-tab:hover { border-color: var(--accent); color: var(--accent); }
+.source-tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
-  border-bottom-color: var(--accent);
-  background: var(--accent-soft);
 }
-.mode-tab .tab-icon { font-size: 18px; display: block; margin-bottom: 2px; }
-.mode-tab .tab-label { font-size: 12px; color: inherit; }
+.hl-section-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.hl-section-head .section-label { margin-bottom: 0; }
+.hl-source-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+.hl-type-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-right: 6px;
+  vertical-align: 1px;
+  font-family: var(--font-ui);
+}
+.hl-type-badge.hot { background: rgba(184,84,58,.1); color: var(--accent); }
+.hl-type-badge.mine { background: rgba(91,140,90,.12); color: var(--success); }
+.hl-link {
+  color: var(--accent);
+  font-size: 11px;
+  text-decoration: none;
+  margin-left: 10px;
+  opacity: .85;
+}
+.hl-link:hover { opacity: 1; text-decoration: underline; }
 
 /* Cards */
 .card {
@@ -625,7 +650,14 @@ body {
       <div class="section-divider"></div>
 
       <!-- Highlights section (appendix) -->
-      <div class="section-label">📝 热门划线 · 多选后可开始对话</div>
+      <div class="hl-section-head">
+        <div class="section-label">📝 划线 · 勾选后可开始对话</div>
+        <div class="source-tabs" id="hlSourceTabs">
+          <button class="source-tab active" data-src="hot" onclick="switchHighlightSource('hot')">🔥 万人划线</button>
+          <button class="source-tab" data-src="mine" onclick="switchHighlightSource('mine')">👤 我的划线</button>
+        </div>
+      </div>
+      <div class="hl-source-hint" id="hlSourceHint"></div>
       <div class="highlight-list" id="highlightList"></div>
       <div class="action-row" style="margin-top:16px">
         <button class="btn btn-secondary" id="btnChatSearch" disabled onclick="startChat()">
@@ -669,7 +701,7 @@ body {
     <label id="apiKeyLabel">智谱 API Key</label>
     <input type="password" id="apiKeyInput" placeholder="粘贴你的 API Key" class="api-key">
     <p style="font-size:11px;color:var(--text-light);margin-top:4px">
-      获取地址：<a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color:var(--accent)">open.bigmodel.cn</a>
+      获取地址：<a id="keyUrlLink" href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color:var(--accent)">open.bigmodel.cn</a>
     </p>
 
     <div class="modal-actions">
@@ -700,16 +732,31 @@ const PROVIDERS = {
   },
 };
 
+const SESSION_KEY = 'socrates_session_v1';
+
+// 统一的状态容器：当前书、划线、选中项、对话均收敛于此
 let state = {
-  mode: 'search',
   provider: localStorage.getItem('ai_provider') || 'zhipu',
   apiKey: '',
   apiKeyZhipu: localStorage.getItem('ai_key_zhipu') || '',
   apiKeyDeepseek: localStorage.getItem('ai_key_deepseek') || '',
+  // 当前书（含搜索结果的完整 meta，用于导出与 deep link）
+  currentBook: null,          // { bookId, title, author, cover, rating, intro, chapters }
+  // 划线列表（统一结构，渲染与选中共用）
+  highlightSource: 'hot',     // 'hot' = 万人划线 | 'mine' = 我的划线
+  highlights: [],             // [{ text, chapter, chapterUid, meta, kind, link }]
+  // 选中项（带出处元数据，供导出与对话）
+  selectedItems: [],          // [{ text, chapter, meta }]
   selectedText: '',
   conversationHistory: [],
   questionRound: 0,
   isProcessing: false,
+  chatSummary: '',            // 「生成读书小结」产物
+  lastMermaidCode: '',
+  mindmapBookTitle: '',
+  // 加载状态标记
+  mineLoaded: false,
+  mineLoading: false,
 };
 
 // Init
@@ -718,6 +765,7 @@ document.getElementById('modelProvider').value = state.provider;
 document.getElementById('apiKeyInput').value = state.apiKey;
 updateSettingsUI();
 checkServer();
+restoreSession();
 
 // ============ SERVER CHECK ============
 async function checkServer() {
@@ -728,7 +776,7 @@ async function checkServer() {
     const msg = document.getElementById('serverMsg');
     if (d.ok && d.weread) {
       dot.className = 'dot online';
-      msg.textContent = '微信读书服务已连接';
+      msg.textContent = d.skillVersion ? `微信读书服务已连接 · v${d.skillVersion}` : '微信读书服务已连接';
     } else if (d.ok) {
       dot.className = 'dot offline';
       msg.textContent = '微信读书 API 未配置';
@@ -739,17 +787,11 @@ async function checkServer() {
   }
 }
 
-// ============ MODE SWITCH (simplified: search only) ============
-function switchMode(mode) {
-  // Only 'search' mode exists now
-  state.mode = 'search';
-  clearSelection();
-}
-
 // ============ BOOK SEARCH ============
 async function searchBook() {
   const keyword = document.getElementById('searchInput').value.trim();
   if (!keyword) return;
+  hideSessionPrompt();
 
   const status = document.getElementById('searchStatus');
   status.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在搜索「' + escapeHtml(keyword) + '」…</div>';
@@ -766,51 +808,78 @@ async function searchBook() {
     }
 
     const book = books[0].bookInfo;
-    window._currentBook = { title: book.title, author: book.author, bookId: book.bookId };
+    clearSession();
+    state.currentBook = {
+      bookId: book.bookId,
+      title: book.title,
+      author: book.author,
+      cover: book.cover || '',
+      rating: (book.newRating / 10).toFixed(1),
+      ratingCount: book.newRatingCount || 0,
+    };
+    state.highlightSource = 'hot';
+    state.mineLoaded = false;
+    state.mineLoading = false;
+    state.lastMermaidCode = '';
+    state.mindmapBookTitle = '';
+    document.querySelectorAll('#hlSourceTabs .source-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.src === 'hot');
+    });
     document.getElementById('searchStep').classList.add('hidden');
     document.getElementById('resultsStep').classList.remove('hidden');
 
-    // Show book meta
+    // Show book meta + deep link
     document.getElementById('searchMeta').innerHTML = `
       <img class="book-cover" src="${escapeHtml(book.cover || '')}" alt="封面" onerror="this.style.display='none'">
       <div class="book-info">
         <h4>${escapeHtml(book.title)}</h4>
         <div style="font-size:12px;color:var(--text-muted)">${escapeHtml(book.author || '')} · 评分 ${(book.newRating/10).toFixed(1)} · ${book.newRatingCount}人评价</div>
+        <div style="font-size:11px;margin-top:4px"><a class="hl-link" href="weread://reading?bId=${encodeURIComponent(book.bookId)}" style="margin-left:0">📖 在微信读书打开本书</a></div>
       </div>
     `;
 
-    // Get highlights + book info + chapters in parallel
-    // Show loading state inside resultsStep (searchStep is hidden now)
+    // Get highlights + book info + chapters with failure isolation
     document.getElementById('mindmapContent').innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在获取书籍详情…</div>';
     document.getElementById('highlightList').innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在获取热门划线…</div>';
 
+    // 失败隔离：每个请求独立捕获，互不拖累
     const [hr, bi, ci] = await Promise.all([
-      wereadCall('/book/bestbookmarks', { bookId: book.bookId, chapterUid: 0, synckey: 0 }),
-      wereadCall('/book/info', { bookId: book.bookId }),
-      wereadCall('/book/chapterinfo', { bookId: book.bookId }),
+      wereadCall('/book/bestbookmarks', { bookId: book.bookId, chapterUid: 0, synckey: 0 }).catch(err => ({ _err: err, errcode: -1 })),
+      wereadCall('/book/info', { bookId: book.bookId }).catch(err => ({ _err: err, errcode: -1 })),
+      wereadCall('/book/chapterinfo', { bookId: book.bookId }).catch(err => ({ _err: err, errcode: -1 })),
     ]);
 
-    // Store book detail for mindmap
-    window._currentBook.intro = bi.intro || '';
-    window._currentBook.chapters = (ci.chapters || []).map(c => ({
-      title: c.title,
-      level: c.level || 1,
-      chapterIdx: c.chapterIdx
-    }));
+    // 各自消化：intro/chapters 失败仅影响导图精度；热门划线失败单独提示
+    if (bi && !bi.errcode && bi.intro) state.currentBook.intro = bi.intro || '';
+    if (ci && !ci.errcode && ci.chapters) {
+      state.currentBook.chapters = (ci.chapters || []).map(c => ({ title: c.title, level: c.level || 1, chapterIdx: c.chapterIdx }));
+    }
+    const introReady = !!(state.currentBook.intro);
+    const chaptersReady = !!(state.currentBook.chapters && state.currentBook.chapters.length);
 
-    if (hr.errcode) throw new Error(hr.errmsg);
+    if (hr && !hr.errcode) {
+      renderHotHighlights(hr.items || [], hr.chapters || []);
+    } else {
+      const why = hr && hr._err ? '（网络异常）' : (hr && hr.errmsg ? '：' + hr.errmsg : '');
+      document.getElementById('highlightList').innerHTML = '<div class="status-msg warning">热门划线获取失败' + escapeHtml(why || '') + '。可切换「👤 我的划线」或直接生成导图。</div>';
+      document.getElementById('btnChatSearch').disabled = true;
+    }
 
-    renderHighlights(hr.items || [], hr.chapters || []);
-
-    // Auto-generate mindmap after search
-    startBookMindmap();
+    if (introReady || chaptersReady) {
+      startBookMindmap();
+    } else {
+      const warn = document.createElement('div');
+      warn.className = 'status-msg warning';
+      warn.textContent = '书籍详情/章节目录获取失败，无法生成全书导图。若你的 API Key 正常，请稍后重新搜索，或先阅读「我的划线」。';
+      document.getElementById('mindmapContent').innerHTML = '';
+      document.getElementById('mindmapContent').appendChild(warn);
+    }
   } catch(e) {
     let msg = e.message;
-    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-      msg = '无法连接到本地服务。请在浏览器中打开 <a href="http://localhost:3456" target="_blank" style="color:var(--accent)">http://localhost:3456</a> 使用此功能（Preview 面板不支持）。';
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('网络')) {
+      msg = '无法连接到本地服务。请在浏览器中打开 http://localhost:3456 使用此功能（Preview 面板不支持），并确认已运行 bash scripts/start.sh。';
     }
     const errHtml = '<div class="status-msg error">' + escapeHtml(msg) + '</div>';
-    // If results step is visible, show error there; otherwise show in search status
     if (document.getElementById('resultsStep').classList.contains('hidden')) {
       status.innerHTML = errHtml;
     } else {
@@ -820,33 +889,171 @@ async function searchBook() {
   }
 }
 
-function renderHighlights(items, chapters) {
+// 划线来源切换：hot / mine
+async function switchHighlightSource(src) {
+  if (!state.currentBook) return;
+  state.highlightSource = src;
+  document.querySelectorAll('#hlSourceTabs .source-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.src === src);
+  });
+  const hint = document.getElementById('hlSourceHint');
+
+  if (src === 'mine') {
+    if (!state.mineLoaded && !state.mineLoading) {
+      await loadMyHighlights();
+    }
+    if (state.mineLoaded) {
+      hint.textContent = '展示你在微信读书里的划线（最多 200 条）与带原文的想法，按最近时间排序。勾选后同样可开启引导对话。';
+    }
+  } else {
+    hint.textContent = '该书被划线最多的段落，按热度排序，前 20 条。';
+  }
+}
+
+// 拉取「我的划线」：/book/bookmarklist + /review/list/mine，串行 + 冷却防限流
+async function loadMyHighlights() {
+  const book = state.currentBook;
+  const list = document.getElementById('highlightList');
+  state.mineLoading = true;
+  list.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在获取你的划线…</div>';
+  document.getElementById('btnChatSearch').disabled = true;
+
+  try {
+    // 串行请求 + 冷却，避免官方瞬时限流(429)
+    const bm = await wereadCall('/book/bookmarklist', { bookId: book.bookId }).catch(err => ({ _err: err, errcode: -1 }));
+    await sleep(400);
+    const rv = await wereadCall('/review/list/mine', { bookid: book.bookId, count: 50, synckey: 0 }).catch(err => ({ _err: err, errcode: -1 }));
+
+    const items = [];
+    const seen = new Set();
+
+    // 划线：最多取 200 条（该接口不支持分页，整包返回）
+    if (bm && !bm.errcode && bm.updated) {
+      const chMap = {};
+      (bm.chapters || []).forEach(c => { chMap[c.chapterUid] = c.title; });
+      (bm.updated || []).forEach(u => {
+        if (u.type === 1 && u.markText && !seen.has(u.markText)) {
+          seen.add(u.markText);
+          const d = u.createTime ? new Date(u.createTime * 1000).toLocaleDateString('zh-CN') : '';
+          items.push({
+            text: u.markText,
+            chapter: chMap[u.chapterUid] || '',
+            chapterUid: u.chapterUid,
+            kind: 'mine',
+            meta: '📌 划线' + (d ? ' · ' + d : ''),
+          });
+        }
+      });
+    }
+
+    // 想法/点评（带原文 abstract 的合并展示）
+    if (rv && !rv.errcode && rv.reviews) {
+      rv.reviews.forEach(r => {
+        const rev = r.review || {};
+        const abs = rev.abstract || '';
+        const content = (rev.content || '').trim();
+        if (abs && content && !seen.has(abs)) {
+          seen.add(abs);
+          const d = rev.createTime ? new Date(rev.createTime * 1000).toLocaleDateString('zh-CN') : '';
+          items.push({
+            text: abs,
+            thought: content,
+            chapter: rev.chapterName || '',
+            chapterUid: rev.chapterUid,
+            kind: 'mine',
+            meta: '💭 我的想法' + (d ? ' · ' + d : ''),
+          });
+        }
+      });
+    }
+
+    if (!items.length) {
+      const whyHot = (bm && bm._err) || (rv && rv._err) ? '' : '这本书还没有你的划线或想法。';
+      const hintMsg = (bm && bm.errcode && bm.errmsg ? '划线获取失败：' + bm.errmsg + '。' : '') +
+        (rv && rv.errcode && rv.errmsg ? '想法获取失败：' + rv.errmsg + '。' : '') + whyHot;
+      list.innerHTML = '<div class="status-msg info">' + escapeHtml(hintMsg || '暂无个人划线') + '</div>';
+      state.mineLoaded = true;
+      state.highlights = [];
+      window._selectedIdxs = new Set();
+      return;
+    }
+
+    items.sort((a, b) => 0); // 保持划线在前
+    state.highlights = items;
+    window._selectedIdxs = new Set();
+    state.mineLoaded = true;
+    renderHighlightList();
+  } catch(e) {
+    list.innerHTML = '<div class="status-msg error">获取个人划线失败：' + escapeHtml(e.message) + '</div>';
+  } finally {
+    state.mineLoading = false;
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ============ HIGHLIGHTS RENDERING ============
+function renderHotHighlights(items, chapters) {
   const chapterMap = {};
   (chapters || []).forEach(c => { chapterMap[c.chapterUid] = c.title; });
+  state.highlights = (items || [])
+    .filter(item => item.markText)
+    .map(item => ({
+      text: item.markText,
+      chapter: chapterMap[item.chapterUid] || '',
+      chapterUid: item.chapterUid,
+      kind: 'hot',
+      meta: '🔥 ' + (item.totalCount || 0).toLocaleString() + ' 人划线',
+      link: buildBestBookmarkLink(item),
+    }));
+  window._selectedIdxs = new Set();
+  document.getElementById('hlSourceHint').textContent = '该书被划线最多的段落，按热度排序，前 20 条。';
+  renderHighlightList();
+}
 
+// deep link：跳转划线所在位置（bestbookmark），缺少 userVid 则降级为章节
+function buildBestBookmarkLink(item) {
+  try {
+    if (!item || !item.chapterUid) return '';
+    const base = 'weread://bestbookmark?bookId=' + encodeURIComponent(state.currentBook.bookId) +
+      '&chapterUid=' + encodeURIComponent(item.chapterUid) +
+      '&userVid=' + encodeURIComponent(item.userVid || '');
+    if (item.range) {
+      const parts = String(item.range).split('-');
+      return base + '&rangeStart=' + encodeURIComponent(parts[0] || '') + '&rangeEnd=' + encodeURIComponent(parts[1] || parts[0] || '');
+    }
+    return 'weread://reading?bId=' + encodeURIComponent(state.currentBook.bookId) + '&chapterUid=' + encodeURIComponent(item.chapterUid);
+  } catch(e) { return ''; }
+}
+
+function renderHighlightList() {
   const list = document.getElementById('highlightList');
-  list.innerHTML = items.map((item, i) => {
-    if (!item.markText) return '';
-    const chapter = chapterMap[item.chapterUid] || '';
+  list.innerHTML = state.highlights.map((item, i) => {
+    const chapter = item.chapter;
+    const badgeCls = item.kind === 'hot' ? 'hot' : 'mine';
+    const badgeTxt = item.kind === 'hot' ? '万人' : '我的';
+    const linkHtml = item.link
+      ? `<a class="hl-link" href="${item.link}" onclick="event.stopPropagation()" title="在微信读书打开该划线">📖 跳转</a>`
+      : '';
     return `
       <div class="highlight-card" data-idx="${i}" onclick="toggleHighlight(${i}, event)">
         <div class="select-badge">✓</div>
-        <div class="hl-text">${escapeHtml(item.markText)}</div>
+        <div class="hl-text">${escapeHtml(item.text)}</div>
+        ${item.thought ? `<div class="hl-meta" style="margin-top:6px"><span style="color:var(--success)">💭 ${escapeHtml(String(item.thought).slice(0, 120))}${item.thought.length > 120 ? '…' : ''}</span></div>` : ''}
         <div class="hl-meta">
-          <span class="hl-count">🔥 ${(item.totalCount || 0).toLocaleString()} 人划线</span>
-          ${chapter ? `<span class="hl-chapter">${escapeHtml(chapter)}</span>` : ''}
+          <span><span class="hl-type-badge ${badgeCls}">${badgeTxt}</span><span class="hl-count">${escapeHtml(item.meta || '')}</span></span>
+          <span class="hl-chapter">${chapter ? escapeHtml(chapter) : ''}${linkHtml}</span>
         </div>
       </div>
     `;
   }).join('');
 
-  window._highlights = items;
-  window._selectedIdxs = new Set();
-  document.getElementById('btnChatSearch').disabled = true;
+  document.getElementById('btnChatSearch').disabled = !window._selectedIdxs || window._selectedIdxs.size === 0;
   document.getElementById('chatHighlightCount').textContent = '';
 }
 
 function toggleHighlight(idx, event) {
+  if (event && event.target && event.target.closest('a')) return; // 不拦截 deep link
   const card = document.querySelector(`.highlight-card[data-idx="${idx}"]`);
   if (!card) return;
 
@@ -864,19 +1071,25 @@ function toggleHighlight(idx, event) {
   btn.disabled = count === 0;
   counter.textContent = count > 0 ? `（已选 ${count} 条）` : '';
 
-  // Update selected text (don't show result area yet — only on chat start)
   if (count > 0) {
-    const texts = Array.from(window._selectedIdxs).sort((a,b)=>a-b).map(i => window._highlights[i].markText);
-    state.selectedText = texts.join('\n\n---\n\n');
+    // 记录带出处的选中项，供导出/对话使用
+    state.selectedItems = Array.from(window._selectedIdxs).sort((a,b)=>a-b)
+      .map(i => {
+        const h = state.highlights[i];
+        return { text: h.text, chapter: h.chapter || '', meta: h.meta || '' };
+      });
+    state.selectedText = state.selectedItems.map(it => it.text).join('\n\n---\n\n');
   } else {
+    state.selectedItems = [];
     state.selectedText = '';
-    // Hide chat area if visible
     document.getElementById('resultArea').classList.add('hidden');
     document.getElementById('selectedPassage').classList.add('hidden');
     document.getElementById('resultContent').innerHTML = '';
   }
   state.conversationHistory = [];
   state.questionRound = 0;
+  state.chatSummary = '';
+  clearSession();
 }
 
 // ============ WEREAD PROXY ============
@@ -886,6 +1099,11 @@ async function wereadCall(apiName, params) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ api_name: apiName, ...params }),
   });
+  if (!resp.ok) {
+    let msg = 'HTTP ' + resp.status;
+    try { const j = await resp.json(); msg = j.errmsg || msg; } catch(e) {}
+    throw new Error(msg);
+  }
   return resp.json();
 }
 
@@ -898,19 +1116,149 @@ function clearSelection() {
   state.selectedText = '';
   state.conversationHistory = [];
   state.questionRound = 0;
+  state.chatSummary = '';
+  state.selectedItems = [];
   window._selectedIdxs = new Set();
+  clearSession();
   document.getElementById('resultArea').classList.add('hidden');
   document.getElementById('selectedPassage').classList.add('hidden');
   document.getElementById('resultContent').innerHTML = '';
   document.getElementById('mindmapContent').innerHTML = '';
+  document.getElementById('highlightList').innerHTML = '';
+  document.getElementById('hlSourceHint').textContent = '';
 
   document.getElementById('searchStep').classList.remove('hidden');
   document.getElementById('resultsStep').classList.add('hidden');
   document.getElementById('searchStatus').innerHTML = '';
 }
 
+// ---------- 会话持久化（刷新后恢复未完成的引导对话） ----------
+function saveSession() {
+  if (!state.currentBook || !state.conversationHistory.length) return;
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      book: state.currentBook,
+      selectedItems: state.selectedItems,
+      selectedText: state.selectedText,
+      history: state.conversationHistory,
+      round: state.questionRound,
+      summary: state.chatSummary,
+      source: state.highlightSource,
+    }));
+  } catch(e) { /* storage full or blocked */ }
+}
+
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+function restoreSession() {
+  let s;
+  try { s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e) { return; }
+  if (!s || !s.book || !s.history || !s.history.length) return;
+
+  // 提示用户存在未完成会话，由用户决定是否继续
+  const banner = document.createElement('div');
+  banner.className = 'status-msg info';
+  banner.id = 'sessionBanner';
+  banner.style.marginBottom = '12px';
+  banner.innerHTML = `检测到《${escapeHtml(s.book.title)}》有一场未完成的引导对话（第 ${s.round}/5 轮）。`;
+  const btnResume = document.createElement('button');
+  btnResume.className = 'btn btn-secondary';
+  btnResume.style.marginRight = '8px';
+  btnResume.textContent = '继续对话';
+  btnResume.onclick = () => resumeSession(s);
+  const btnDiscard = document.createElement('button');
+  btnDiscard.className = 'btn btn-outline';
+  btnDiscard.textContent = '放弃并开始新的';
+  btnDiscard.onclick = () => { hideSessionPrompt(); clearSession(); };
+  banner.appendChild(btnResume);
+  banner.appendChild(btnDiscard);
+
+  const searchStep = document.getElementById('searchStep');
+  searchStep.parentNode.insertBefore(banner, searchStep);
+  window._pendingSession = s;
+}
+
+function hideSessionPrompt() {
+  const b = document.getElementById('sessionBanner');
+  if (b) b.remove();
+  window._pendingSession = null;
+}
+
+function resumeSession(s) {
+  hideSessionPrompt();
+  clearSelection();               // 重置 DOM 后重建
+  state.currentBook = s.book;
+  state.selectedItems = s.selectedItems || [];
+  state.selectedText = s.selectedText || '';
+  state.conversationHistory = s.history || [];
+  state.questionRound = s.round || 0;
+  state.chatSummary = s.summary || '';
+  state.highlightSource = s.source || 'hot';
+  window._selectedIdxs = new Set();
+
+  document.getElementById('searchStep').classList.add('hidden');
+  document.getElementById('resultsStep').classList.remove('hidden');
+  const book = state.currentBook;
+  document.getElementById('searchMeta').innerHTML = `
+    <img class="book-cover" src="${escapeHtml(book.cover || '')}" alt="封面" onerror="this.style.display='none'">
+    <div class="book-info">
+      <h4>${escapeHtml(book.title)}</h4>
+      <div style="font-size:12px;color:var(--text-muted)">${escapeHtml(book.author || '')} · 已恢复上次会话</div>
+    </div>
+  `;
+  document.querySelectorAll('#hlSourceTabs .source-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.src === state.highlightSource);
+  });
+  document.getElementById('hlSourceHint').textContent = '已恢复会话：勾选的划线内容仍保留，可直接继续对话。';
+  document.getElementById('highlightList').innerHTML = '';
+  document.getElementById('mindmapContent').innerHTML = '<div class="status-msg info">已恢复上次会话，未重新生成全书导图。如需查看可重新搜索本书。</div>';
+
+  // 恢复对话区
+  const area = document.getElementById('resultArea');
+  const content = document.getElementById('resultContent');
+  area.classList.remove('hidden');
+  document.getElementById('selectedPassage').classList.remove('hidden');
+  document.getElementById('passageText').textContent = state.selectedText;
+
+  content.innerHTML = `
+    <div class="qa-container">
+      <div class="qa-header">💬 引导式对话 · 第 <span id="roundNum">${Math.min(state.questionRound + 1, 5)}</span>/5 轮</div>
+      <div class="qa-messages" id="qaMessages"></div>
+      <div class="qa-input-row">
+        <textarea id="qaInput" placeholder="输入你的回答…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnswer()}"></textarea>
+        <button class="send-btn" id="qaSendBtn" onclick="sendAnswer()">➤</button>
+      </div>
+    </div>
+  `;
+
+  const messages = document.getElementById('qaMessages');
+  const history = state.conversationHistory.filter(m => m.role !== 'system');
+  history.forEach((m, i) => {
+    const isAi = m.role === 'assistant';
+    const div = document.createElement('div');
+    div.className = 'message ' + (isAi ? 'ai' : 'user');
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = m.content;
+    div.appendChild(bubble);
+    messages.appendChild(div);
+  });
+
+  if (state.questionRound >= 5) {
+    finishChat(messages);
+  } else {
+    document.getElementById('roundNum').textContent = state.questionRound + 1;
+    document.getElementById('qaInput').disabled = false;
+    document.getElementById('qaSendBtn').disabled = false;
+  }
+  saveSession();
+  if (window._pendingSession) { window._pendingSession = null; }
+}
+
 async function startBookMindmap() {
-  const book = window._currentBook;
+  const book = state.currentBook;
   const content = document.getElementById('mindmapContent');
 
   if (!book) {
@@ -923,37 +1271,42 @@ async function startBookMindmap() {
     return;
   }
 
-  content.innerHTML = '<div class="loading-row"><div class="loading-dots"><span></span><span></span><span></span></div>正在为《' + escapeHtml(book.title) + '》生成全书结构图…</div>';
+  content.innerHTML = '<div class="loading-row" id="mindmapLoading"><div class="loading-dots"><span></span><span></span><span></span></div><span id="mindmapLoadingText">正在为《' + escapeHtml(book.title) + '》生成全书结构图…</span></div>';
 
   try {
-    // Build context from book intro + chapters
     let context = '';
     if (book.intro) {
-      context += '【书籍简介】\n' + book.intro.slice(0, 1500) + '\n\n';
+      context += '【书籍简介】\n' + String(book.intro).slice(0, 1500) + '\n\n';
     }
     if (book.chapters && book.chapters.length) {
       context += '【章节目录】\n';
       book.chapters.forEach(c => {
-        const indent = '  '.repeat((c.level || 1) - 1);
-        context += `${indent}${c.title}\n`;
+        context += '  '.repeat((c.level || 1) - 1) + c.title + '\n';
       });
     }
+    if (!context.trim()) {
+      throw new Error('书籍简介与章节目录均为空，无法生成结构导图');
+    }
 
-    const result = await callLLM([
+    const fullResp = await callLLMStream([
       { role: 'system', content: BOOK_MINDMAP_SYSTEM + '\n\n' + BOOK_MINDMAP_EXAMPLE },
       { role: 'user', content: `请为以下书籍生成可视化图表：\n书名：《${book.title}》\n作者：${book.author}\n\n${context}\n\n请基于以上信息判断书籍类型（虚构/非虚构），选择合适的图表类型（mindmap 结构导图 或 graph 人物关系图/情节图），生成一个丰富、具体、有深度的可视化图表。不要泛泛而谈，要体现这本书的独特性。` },
-    ], 0.3);
+    ], 0.3, {
+      onDelta: (delta) => {
+        const t = document.getElementById('mindmapLoadingText');
+        if (t) t.textContent = '正在生成全书结构图…（' + delta.length + ' 字）';
+      }
+    });
 
-    const mermaidMatch = result.match(/```mermaid\n?([\s\S]*?)```/) || result.match(/mindmap[\s\S]*/);
-    const mermaidCode = mermaidMatch ? (mermaidMatch[1] || mermaidMatch[0]).trim() : result.trim();
+    const mermaidMatch = fullResp.match(/```mermaid\n?([\s\S]*?)```/) || fullResp.match(/mindmap[\s\S]*/);
+    const mermaidCode = mermaidMatch ? (mermaidMatch[1] || mermaidMatch[0]).trim() : fullResp.trim();
 
-    // Store for edit/copy/export
-    window._lastMermaidCode = mermaidCode;
-    window._mindmapBookTitle = book.title;
+    state.lastMermaidCode = mermaidCode;
+    state.mindmapBookTitle = book.title;
 
     renderMindmapPreview(mermaidCode, book.title);
   } catch(e) {
-    content.innerHTML = '<div class="status-msg error">生成失败：' + escapeHtml(e.message) + '</div>';
+    content.innerHTML = '<div class="status-msg error">导图生成失败：' + escapeHtml(e.message) + '</div><div style="margin-top:10px"><button class="btn btn-outline" onclick="startBookMindmap()">🔄 重试生成</button></div>';
   }
 }
 
@@ -1032,7 +1385,7 @@ function rerenderMindmap() {
   const newCode = editor.value.trim();
   if (!newCode) { showToast('代码不能为空'); return; }
 
-  window._lastMermaidCode = newCode;
+  state.lastMermaidCode = newCode;
 
   // Switch to view mode
   toggleMindmapMode('view');
@@ -1051,7 +1404,7 @@ function rerenderMindmap() {
 }
 
 function copyMermaidCode() {
-  const code = window._lastMermaidCode || '';
+  const code = state.lastMermaidCode || '';
   const editor = document.getElementById('mermaidCodeEditor');
   const text = (editor && editor.offsetParent !== null) ? editor.value : code;
   navigator.clipboard.writeText(text).then(() => {
@@ -1129,7 +1482,7 @@ function downloadMermaidPng() {
         }
         const dlUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        const title = (window._mindmapBookTitle || 'mindmap').replace(/[<>:"/\\|?*]/g, '_');
+        const title = (state.mindmapBookTitle || 'mindmap').replace(/[<>:"/\\|?*]/g, '_');
         a.href = dlUrl;
         a.download = title + '-导图.png';
         document.body.appendChild(a);
@@ -1182,18 +1535,19 @@ async function startChat() {
   document.getElementById('selectedPassage').classList.remove('hidden');
   document.getElementById('passageText').textContent = text;
 
+  const book = state.currentBook || {};
   state.conversationHistory = [
     { role: 'system', content: CHAT_SYSTEM },
-    { role: 'user', content: `我正在读这段文字：\n\n${text}\n\n请开始第一轮提问。` },
+    { role: 'user', content: `我正在读《${book.title || ''}》${book.author ? '（' + book.author + '）' : ''}中的这段文字：\n\n${text}\n\n请开始第一轮提问。` },
   ];
   state.questionRound = 0;
+  state.chatSummary = '';
+  saveSession();
 
   content.innerHTML = `
     <div class="qa-container">
       <div class="qa-header">💬 引导式对话 · 第 <span id="roundNum">1</span>/5 轮</div>
-      <div class="qa-messages" id="qaMessages">
-        <div class="loading-row" id="qaLoading"><div class="loading-dots"><span></span><span></span><span></span></div>思考中…</div>
-      </div>
+      <div class="qa-messages" id="qaMessages"></div>
       <div class="qa-input-row">
         <textarea id="qaInput" placeholder="输入你的回答…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnswer()}"></textarea>
         <button class="send-btn" id="qaSendBtn" onclick="sendAnswer()" disabled>➤</button>
@@ -1201,44 +1555,153 @@ async function startChat() {
     </div>
   `;
 
-  // Send first question
+  await streamAIRound();
+}
+
+// 流式生成 AI 的下一轮提问/回复
+async function streamAIRound() {
+  const messages = document.getElementById('qaMessages');
+  const input = document.getElementById('qaInput');
+  const sendBtn = document.getElementById('qaSendBtn');
+  state.isProcessing = true;
+  input.disabled = true;
+  sendBtn.disabled = true;
+
+  // 创建空气泡，流式填充
+  const aiMsg = document.createElement('div');
+  aiMsg.className = 'message ai';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = '<div class="loading-dots" style="display:inline-flex"><span></span><span></span><span></span></div> 思考中…';
+  aiMsg.appendChild(bubble);
+  messages.appendChild(aiMsg);
+  messages.scrollTop = messages.scrollHeight;
+
   try {
-    const resp = await callLLM(state.conversationHistory, 0.8);
-    state.questionRound = 1;
-    state.conversationHistory.push({ role: 'assistant', content: resp });
-    updateQAUi(resp);
+    let full = '';
+    const resp = await callLLMStream(state.conversationHistory, 0.8, {
+      onDelta: (delta) => {
+        full += delta;
+        bubble.textContent = full;   // textContent 天然转义
+        messages.scrollTop = messages.scrollHeight;
+      }
+    });
+
+    // 流式可能未触发 onDelta（如纯增量异常），兜底
+    if (!full && resp) { bubble.textContent = resp; full = resp; }
+    if (!full) throw new Error('模型返回为空');
+
+    state.questionRound++;
+    state.conversationHistory.push({ role: 'assistant', content: full });
+    state.isProcessing = false;
+    saveSession();
+    afterAIRound();
   } catch(e) {
-    document.getElementById('qaLoading').innerHTML = '<div class="status-msg error">生成失败：' + escapeHtml(e.message) + '</div>';
+    bubble.textContent = '';
+    const errDiv = document.createElement('div');
+    errDiv.className = 'status-msg error';
+    errDiv.textContent = '生成失败：' + e.message;
+    aiMsg.appendChild(errDiv);
+    state.isProcessing = false;
+    input.disabled = false;
+    sendBtn.disabled = false;
   }
 }
 
-function updateQAUi(msg) {
-  const loading = document.getElementById('qaLoading');
+function afterAIRound() {
+  const input = document.getElementById('qaInput');
+  const sendBtn = document.getElementById('qaSendBtn');
+  const roundNum = document.getElementById('roundNum');
+  roundNum.textContent = state.questionRound;
   const messages = document.getElementById('qaMessages');
-  if (loading) loading.remove();
-
-  const msgDiv = document.createElement('div');
-  msgDiv.className = 'message ai';
-  msgDiv.innerHTML = '<div class="avatar">🤖</div><div class="bubble">' + escapeHtml(msg).replace(/\n/g, '<br>') + '</div>';
-  messages.appendChild(msgDiv);
-  messages.scrollTop = messages.scrollHeight;
-
-  document.getElementById('roundNum').textContent = state.questionRound;
-  document.getElementById('qaInput').disabled = false;
-  document.getElementById('qaSendBtn').disabled = false;
-  document.getElementById('qaInput').focus();
 
   if (state.questionRound >= 5) {
-    document.getElementById('qaInput').disabled = true;
-    document.getElementById('qaSendBtn').disabled = true;
-    document.getElementById('qaInput').placeholder = '对话已完成，你可以导出笔记';
-    // Add export button
-    const exportBtn = document.createElement('button');
-    exportBtn.className = 'btn btn-outline';
-    exportBtn.textContent = '📥 导出笔记';
-    exportBtn.style.margin = '8px 0';
-    exportBtn.onclick = exportNotes;
-    messages.appendChild(exportBtn);
+    input.disabled = true;
+    sendBtn.disabled = true;
+    input.placeholder = '对话已完成，可导出笔记或生成读书小结';
+    finishChat(messages);
+  } else {
+    roundNum.textContent = state.questionRound + 1;
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+  saveSession();
+}
+
+function finishChat(messages) {
+  if (!messages) messages = document.getElementById('qaMessages');
+  if (document.getElementById('qaActions')) return;
+  const actions = document.createElement('div');
+  actions.id = 'qaActions';
+  actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px';
+
+  const summaryBtn = document.createElement('button');
+  summaryBtn.className = 'btn btn-secondary';
+  summaryBtn.id = 'btnGenSummary';
+  summaryBtn.textContent = '📝 ' + (state.chatSummary ? '重新生成读书小结' : '生成读书小结');
+  summaryBtn.onclick = genSummary;
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'btn btn-outline';
+  exportBtn.textContent = '📥 导出笔记';
+  exportBtn.onclick = exportNotes;
+
+  actions.appendChild(summaryBtn);
+  actions.appendChild(exportBtn);
+  messages.appendChild(actions);
+}
+
+// 基于对话记录生成结构化读书小结（核心观点/我的启发/可应用点）
+async function genSummary() {
+  const book = state.currentBook || {};
+  const btn = document.getElementById('btnGenSummary');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '生成中…';
+
+  const messages = document.getElementById('qaMessages');
+  const summaryMsg = document.createElement('div');
+  summaryMsg.className = 'message ai';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = '<div class="loading-dots" style="display:inline-flex"><span></span><span></span><span></span></div> 正在整理小结…';
+  summaryMsg.appendChild(bubble);
+  messages.appendChild(summaryMsg);
+  messages.scrollTop = messages.scrollHeight;
+
+  try {
+    const chatPart = state.conversationHistory
+      .filter(m => m.role !== 'system')
+      .map(m => (m.role === 'assistant' ? '教练问：' : '我答：') + m.content)
+      .join('\n\n');
+
+    const messagesArr = [
+      { role: 'system', content: SUMMARY_SYSTEM },
+      { role: 'user', content: `请根据以下这场 5 轮苏格拉底对话，为《${book.title}》（${book.author || '未知作者'}）整理一份结构化读书小结。\n\n【对话记录】\n${chatPart}\n\n请输出读书小结。` },
+    ];
+
+    let full = '';
+    const resp = await callLLMStream(messagesArr, 0.4, {
+      onDelta: (delta) => {
+        full += delta;
+        bubble.textContent = full;
+        messages.scrollTop = messages.scrollHeight;
+      }
+    });
+    if (!full && resp) { bubble.textContent = resp; full = resp; }
+    state.chatSummary = full;
+    saveSession();
+    showToast('读书小结已生成，可随笔记一并导出');
+  } catch(e) {
+    bubble.textContent = '';
+    const errDiv = document.createElement('div');
+    errDiv.className = 'status-msg error';
+    errDiv.textContent = '小结生成失败：' + e.message;
+    summaryMsg.appendChild(errDiv);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📝 重新生成读书小结';
   }
 }
 
@@ -1250,47 +1713,48 @@ async function sendAnswer() {
   const messages = document.getElementById('qaMessages');
   const userDiv = document.createElement('div');
   userDiv.className = 'message user';
-  userDiv.innerHTML = '<div class="avatar">👤</div><div class="bubble">' + escapeHtml(answer) + '</div>';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = answer;
+  userDiv.appendChild(bubble);
   messages.appendChild(userDiv);
   messages.scrollTop = messages.scrollHeight;
 
   input.value = '';
-  input.disabled = true;
-  document.getElementById('qaSendBtn').disabled = true;
-
-  const loading = document.createElement('div');
-  loading.className = 'loading-row';
-  loading.id = 'qaLoading';
-  loading.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>思考中…';
-  messages.appendChild(loading);
-  messages.scrollTop = messages.scrollHeight;
-
   state.conversationHistory.push({ role: 'user', content: answer });
-
-  try {
-    const resp = await callLLM(state.conversationHistory, 0.8);
-    state.questionRound++;
-    state.conversationHistory.push({ role: 'assistant', content: resp });
-    updateQAUi(resp);
-  } catch(e) {
-    loading.innerHTML = '<div class="status-msg error">生成失败：' + escapeHtml(e.message) + '</div>';
-    input.disabled = false;
-    document.getElementById('qaSendBtn').disabled = false;
-  }
+  saveSession();
+  await streamAIRound();
 }
 
 function exportNotes() {
-  let md = '# AI 伴读 · 对话笔记\n\n';
-  md += '## 原文选段\n\n> ' + getCurrentText().replace(/\n/g, '\n> ') + '\n\n';
-  md += '## 对话记录\n\n';
-  state.conversationHistory.filter(m => m.role !== 'system').forEach(m => {
-    md += m.role === 'assistant' ? '**🤖 提问**：' : '**👤 回答**：';
-    md += m.content + '\n\n';
+  const book = state.currentBook || {};
+  const dateStr = new Date().toLocaleDateString('zh-CN');
+  let md = '# 《' + (book.title || '未知书名') + '》· AI 伴读笔记\n\n';
+  md += `> 生成日期：${dateStr} ｜ 作者：${book.author || '未知'} ｜ 来源：微信读书 + AI 伴读\n\n`;
+  if (book.rating) md += `> 评分：${book.rating}（${book.ratingCount || 0} 人评价）\n\n`;
+
+  md += '## 一、原文选段（' + state.selectedItems.length + ' 条）\n\n';
+  state.selectedItems.forEach((it, i) => {
+    md += `### ${i + 1}. ${it.chapter ? '《' + book.title + '》·' + it.chapter : '《' + (book.title || '') + '》'}${it.meta ? '（' + it.meta + '）' : ''}\n\n`;
+    md += '> ' + it.text.replace(/\n/g, '\n> ') + '\n\n';
   });
-  const blob = new Blob([md], { type: 'text/markdown' });
+
+  md += '## 二、引导对话记录\n\n';
+  state.conversationHistory.filter(m => m.role !== 'system').forEach(m => {
+    md += (m.role === 'assistant' ? '**🤖 教练**：' : '**👤 我**：') + m.content + '\n\n';
+  });
+
+  if (state.chatSummary) {
+    md += '## 三、读书小结\n\n' + state.chatSummary + '\n\n';
+  }
+
+  md += '---\n> 本笔记由 weread-socrates AI 伴读生成，含书籍原文划线，仅供个人学习使用，请勿公开传播。\n';
+
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'ai-reading-notes.md'; a.click();
+  const fname = ('《' + (book.title || '阅读') + '》伴读笔记').replace(/[<>:"/\\|?*\n]/g, '_');
+  a.href = url; a.download = fname + '.md'; a.click();
   URL.revokeObjectURL(url);
   showToast('笔记已导出。内容含书籍原文划线，仅供个人学习，请勿公开传播');
 }
@@ -1307,14 +1771,17 @@ function clearSettings() {
 }
 
 // ============ LLM CALL ============
-async function callLLM(messages, temperature = 0.7, maxTokens = 4096) {
+// 统一的 LLM 调用：默认流式（OpenAI 兼容 SSE）；当响应非流式（降级/异常）时自动改走完整 JSON 读取。
+// opts.onDelta(deltaText) 每次收到增量触发；返回完整文本。
+async function callLLMStream(messages, temperature = 0.7, opts = {}) {
   const provider = PROVIDERS[state.provider];
+  const maxTokens = opts.maxTokens || 4096;
   let resp;
   try {
     resp = await fetch(provider.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
-      body: JSON.stringify({ model: provider.model, messages, temperature, max_tokens: maxTokens }),
+      body: JSON.stringify({ model: provider.model, messages, temperature, max_tokens: maxTokens, stream: true }),
     });
   } catch(networkErr) {
     throw new Error('网络请求失败（可能是 CORS 或网络问题）：' + networkErr.message + '。如果你在 Preview 面板里使用，请在 Safari 中打开 http://localhost:3456');
@@ -1323,8 +1790,41 @@ async function callLLM(messages, temperature = 0.7, maxTokens = 4096) {
     const err = await resp.json().catch(() => ({}));
     throw new Error(err.error?.message || `API 错误 ${resp.status}（请检查 API Key 是否正确）`);
   }
-  const data = await resp.json();
-  return data.choices[0].message.content;
+  const ctype = resp.headers.get('content-type') || '';
+  if (!resp.body || !ctype.includes('text/event-stream')) {
+    // 非流式响应（供应商降级或不支持）
+    const data = await resp.json();
+    const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (typeof text === 'string' && text.length && opts.onDelta) opts.onDelta(text);
+    return text || '';
+  }
+  // SSE 流式解析
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let full = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t.startsWith('data:')) continue;
+      const payload = t.slice(5).trim();
+      if (payload === '[DONE]') continue;
+      try {
+        const j = JSON.parse(payload);
+        const delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+        if (delta) {
+          full += delta;
+          if (opts.onDelta) opts.onDelta(delta);
+        }
+      } catch(e) { /* 忽略不完整行 */ }
+    }
+  }
+  return full;
 }
 
 // ============ PROMPTS ============
@@ -1465,6 +1965,23 @@ const CHAT_SYSTEM = `你是苏格拉底式的阅读教练。你会基于用户�
 5. 语气温和、好奇，像朋友聊天
 6. 共 5 轮，第 5 轮结束时帮助用户总结收获`;
 
+const SUMMARY_SYSTEM = `你是一位阅读总结助手。请基于用户提供的一场 5 轮苏格拉底式引导对话（教练提问 + 读者回答），输出一份结构化的读书小结，帮助读者沉淀收获。
+
+输出格式（Markdown）：
+## 📌 核心观点
+（从对话中提炼 2-4 个这本书/这段文字带给读者的核心认识，用简短条目 + 一句话说明）
+
+## 💡 我的启发
+（从读者自己的回答中归纳 2-3 条个人启发/联想，联系读者的经验）
+
+## 🛠 可应用点
+（给出 1-3 个读者接下来可以实际做的事/应用的场景，具体可执行）
+
+要求：
+- 只基于对话中真实出现的内容，不要编造书中没有的观点
+- 语言自然、有温度，像写给读者自己的笔记
+- 总长度控制在 300-500 字`;
+
 // ============ SETTINGS ============
 function toggleSettings() {
   document.getElementById('settingsModal').classList.toggle('active');
@@ -1484,8 +2001,8 @@ function onProviderChange() {
 function updateProviderUI() {
   const p = PROVIDERS[state.provider];
   document.getElementById('apiKeyLabel').textContent = p.name + ' API Key';
-  document.querySelector('#settingsModal p a').href = p.keyUrl;
-  document.querySelector('#settingsModal p a').textContent = new URL(p.keyUrl).hostname;
+  const link = document.getElementById('keyUrlLink');
+  if (link) { link.href = p.keyUrl; link.textContent = new URL(p.keyUrl).hostname; }
 }
 
 function saveSettings() {

@@ -9,11 +9,22 @@ const WEREAD_API_KEY = process.env.WEREAD_API_KEY || '';
 const HTML_FILE = path.join(__dirname, 'ai-reading-companion.html');
 const PID_FILE = path.join(__dirname, '.server.pid');
 
-// 微信读书网关仅代理文档声明的三个只读接口，其余一律拒绝
+// 本 Skill 版本（展示用，取自 SKILL.md frontmatter，发布时保持一致）
+const SKILL_VERSION = '1.2.0';
+
+// 微信读书官方 weread-skills 版本号 —— 网关要求每次请求携带官方 skill 版本用于校验，
+// 与本地 Skill 版本无关；官方升级后需同步更新此常量（参考官方 weread-skills SKILL.md version 字段）
+const WEREAD_OFFICIAL_SKILL_VERSION = '1.0.4';
+
+// 微信读书网关仅代理文档声明的只读接口，其余一律拒绝
 const ALLOWED_APIS = {
   '/store/search': ['keyword', 'count'],
-  '/book/bestbookmarks': ['bookId', 'chapterUid', 'synckey'],
   '/book/info': ['bookId'],
+  '/book/chapterinfo': ['bookId'],
+  '/book/bestbookmarks': ['bookId', 'chapterUid', 'synckey'],
+  // —— 个人划线/笔记（v1.2.0 新增）——
+  '/book/bookmarklist': ['bookId'],                 // 我的划线（自动过滤书签，type=0）
+  '/review/list/mine': ['bookid', 'synckey', 'count'], // 我的想法/点评（注意参数名为小写 bookid）
 };
 
 const MIME = {
@@ -61,7 +72,7 @@ function proxyWeread(req, res) {
     for (const field of ALLOWED_APIS[apiName]) {
       if (parsed[field] !== undefined) payload[field] = parsed[field];
     }
-    payload.skill_version = '1.1.2';
+    payload.skill_version = WEREAD_OFFICIAL_SKILL_VERSION;
 
     const options = {
       hostname: 'i.weread.qq.com',
@@ -107,7 +118,7 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/api/status') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ ok: true, weread: !!WEREAD_API_KEY }));
+    return res.end(JSON.stringify({ ok: true, weread: !!WEREAD_API_KEY, skillVersion: SKILL_VERSION }));
   }
 
   // 仅提供静态文件，且不允许路径穿越出本目录
@@ -130,7 +141,7 @@ const HOST = '127.0.0.1';
 
 server.listen(PORT, HOST, () => {
   const url = `http://localhost:${PORT}`;
-  console.log(`AI 伴读服务已启动 → ${url}（仅监听本机 ${HOST}）`);
+  console.log(`AI 伴读服务已启动 v${SKILL_VERSION} → ${url}（仅监听本机 ${HOST}）`);
   console.log(`微信读书 API: ${WEREAD_API_KEY ? '✓ 已配置' : '✗ 未配置'}`);
 
   // 记录 PID，供 start.sh/stop.sh 精确管理本进程
