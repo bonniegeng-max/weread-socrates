@@ -18,7 +18,8 @@
 }
 ```
 
-`skill_version` 由服务端自动注入，前端调用时无需传入。
+`skill_version` 由服务端自动注入（取值 `WEREAD_OFFICIAL_SKILL_VERSION`，对应官方 weread-skills 包版本，当前 1.0.4），前端调用时无需传入。
+注意：网关校验的是**官方 weread-skills 版本号**，与本 Skill 自身版本（SKILL_VERSION）无关；官方升级后需同步更新 server.js 顶部该常量。
 
 ## 接口列表
 
@@ -97,13 +98,70 @@ chapters[]
   └── title        章节标题（用于映射划线所属章节）
 ```
 
+### 5. 获取我的划线 `/book/bookmarklist`（v1.2.0 新增）
+
+获取当前账号在本书内的划线/书签（个人划线）。网关侧自动过滤书签（type=0），主要返回划线段落。
+
+**参数：**
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| bookId | string | 书籍ID |
+
+**返回关键字段：**
+```
+updated         更新时间戳（可作 synckey 用）
+bookmarks[]
+  ├── markText     划线原文
+  ├── chapterUid   所属章节ID
+  ├── type          0=书签 1=划线 2=想法（网关默认过滤非划线）
+  └── range         划线在章节中的位置范围
+```
+
+> 前端会连带调用 `/review/list/mine` 并**合并**展示，标注类型（划线/想法）。
+
+### 6. 获取我的想法/点评 `/review/list/mine`（v1.2.0 新增）
+
+获取当前账号对本书写过的高亮想法/点评，可为对话补充"我自己的笔记"上下文。
+
+**参数：**
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| bookid | string | 书籍ID（**注意参数名是小写 `bookid`**，与其余接口的 camelCase `bookId` 不同，误传会取不到数据） |
+| synckey | number | 同步游标，首次传 0 |
+| count | number | 拉取数量 |
+
+**返回关键字段：**
+```
+reviews[]
+  ├── markText     想法引用的原文
+  ├── content      想法内容
+  ├── chapterUid   所属章节ID
+  ├── abstract     引文摘要（部分字段名因接口版本而异，前端按需兼容）
+  └── range         引文位置范围
+```
+
+> 该接口未被官方 weread-skills 文档明确列出，参数契约以拆包核对 `cdn.weread.qq.com/skills/weread-skills.zip` 及实测为准。
+
 ## 本地服务端点
 
 | 端点 | 方法 | 说明 |
 |---|---|---|
-| `/api/weread` | POST | 微信读书 API 代理，body 为 `{ api_name, ...params }` |
-| `/api/status` | GET | 服务状态检查，返回 `{ ok, weread }` |
+| `/api/weread` | POST | 微信读书 API 代理，body 为 `{ api_name, ...params }`；仅放行上方 6 个白名单接口 |
+| `/api/status` | GET | 服务状态检查，返回 `{ ok, weread, skillVersion }` |
 | `/` | GET | 返回前端页面 |
+
+## 服务端白名单（ALLOWED_APIS）
+
+`server.js` 中的白名单同时承担**入参裁剪**（只透传声明字段）与**接口拒绝**（未声明一律 403）两个职责。新增接口时需同时改两处：白名单 + `references/weread-api.md` 文档。
+
+| api_name | 允许透传字段 |
+|---|---|
+| `/store/search` | keyword, count |
+| `/book/info` | bookId |
+| `/book/chapterinfo` | bookId |
+| `/book/bestbookmarks` | bookId, chapterUid, synckey |
+| `/book/bookmarklist` | bookId |
+| `/review/list/mine` | bookid（小写）, synckey, count |
 
 ## 常见错误
 
@@ -112,3 +170,5 @@ chapters[]
 | `errcode` 非 0 | API Key 无效或过期 | 检查 `WEREAD_API_KEY` |
 | 502 Bad Gateway | 无法连接微信读书服务器 | 检查网络连接 |
 | 搜索结果为空 | 书名拼写错误或该书未上架 | 换关键词或确认书名 |
+| 403 `不允许的接口` | 前端调用了白名单外的 api_name | 若确需该接口，加入 ALLOWED_APIS 并核对官方参数契约 |
+| 我的划线/想法为空 | 该书未划线；或 `/review/list/mine` 用了大写 `bookId` | 在微信读书 App 内先划线；检查参数名为小写 `bookid` |
