@@ -17,21 +17,24 @@
 | 📝 读书小结 | **v1.2.0 新增**：对话结束后按「核心观点 / 我的启发 / 可应用点」生成 300–500 字小结 |
 | 📥 Markdown 笔记导出 | **v1.2.0 增强**：文件头含书名/作者/日期/评分，按章节分组并标注每条出处 |
 
-## 🚀 快速开始
+## 🚀 快速开始（3 步）
 
-前置条件：
+> 3 步前提只有两个：本机 Node.js v16+，以及两个 Key（微信读书 API Key + 大模型 API Key）。Key 暂缺时应用仍能启动，只是对应功能不可用（见下方 FAQ）。
 
-1. **Node.js**（v16+）：`node --version`
-2. **微信读书 API Key**：写入 shell 配置 `export WEREAD_API_KEY=你的key`（应用只读该值，不执行）
-3. **大模型 API Key**：首次打开应用后在右上角「⚙️ 设置」中配置（支持智谱 GLM / DeepSeek / 自定义 OpenAI 兼容端点），Key 仅存浏览器 localStorage
+**第 1 步 · 准备 Node 环境**
+确认本机已装 Node.js（v16+）：运行 `node --version`。未安装则先安装 Node。
 
-启动：
+**第 2 步 · 配置微信读书 API Key**
+在 shell 配置中写入：`export WEREAD_API_KEY=你的key`（写入 `~/.zshrc` 或 `~/.bashrc`）。应用只读该值、绝不执行。
 
+**第 3 步 · 启动并填入大模型 Key**
 ```bash
 bash scripts/start.sh
 ```
+脚本自动检查 Node、静态读取 Key、清理旧服务并打开浏览器；若未自动打开，手动访问 `http://localhost:3456`。首次打开后在右上角「⚙️ 设置」中填入大模型 API Key（支持智谱 GLM / DeepSeek / 自定义 OpenAI 兼容端点，Key 仅存浏览器 localStorage），然后搜一本书即可开始。
 
-浏览器自动打开 `http://localhost:3456`；也可手动访问并用 `bash scripts/stop.sh` 停止。
+> 停止服务：在运行终端按 `Ctrl+C`，或另开终端执行 `bash scripts/stop.sh`（只停本应用进程）。
+> 健康检查：访问 `http://localhost:3456/api/status` 应返回 `{"ok":true,"weread":true/false}`（`weread` 为 false 即微信 Key 未生效）。
 
 ## 🧭 使用路径
 
@@ -44,6 +47,10 @@ bash scripts/start.sh
 
 **轻量路径：只做思维导图** — 搜书后直接编辑/导出导图，无需进入对话。
 
+## 📸 界面截图（待补充）
+
+> 占位：本地跑起后补充 2–3 张真实截图（对话深读页 / 思维导图页）。当前不放占位图，避免冒充真实界面。
+
 ## 🔒 隐私与安全
 
 - 服务只监听 `127.0.0.1:3456`，外网不可达；API Key 仅由本地服务进程读取
@@ -51,6 +58,22 @@ bash scripts/start.sh
 - 大模型 Key 与会话进度仅存浏览器 localStorage，不经过任何第三方服务器
 - 页面不加载任何第三方 CDN 脚本（Mermaid 已本地打包），Mermaid 渲染禁用脚本执行
 - 导出的笔记含书籍原文，**仅供个人学习**，请勿公开传播
+
+## ❓ 常见问题
+
+**1. Key 未配置怎么办？相关功能点了没反应？**
+两个 Key 各自对应一组功能，缺哪个补哪个：
+- 微信读书 Key（`WEREAD_API_KEY`）未配置 → 搜书、热门划线、我的划线/想法不可用（搜索会失败 / errcode 非 0）。解决：在 `~/.zshrc` 或 `~/.bashrc` 写入 `export WEREAD_API_KEY=你的key`，然后重新运行 `bash scripts/start.sh`。
+- 大模型 Key 未配置 → 思维导图、苏格拉底对话、读书小结不可用（导图区提示"还没有配置 API Key"）。解决：首次打开应用后点右上角「⚙️ 设置」，填入智谱 GLM 或 DeepSeek 的 API Key；Key 仅存浏览器 localStorage，可在设置中一键清除。
+
+**2. 对 Node 环境有什么要求？还要装别的依赖吗？**
+需要 Node.js v16+（用 `node --version` 检查），这是唯一环境要求。**没有其它安装依赖**：Mermaid 渲染库已本地打包在 `assets/mermaid.min.js`，页面不加载任何第三方 CDN 脚本。
+
+**3. 导出的笔记能公开传播或商用吗？**
+不能。导出的 Markdown 笔记含书籍原文划线，属于受版权保护内容，**仅供个人学习使用，请勿公开传播**（README、SKILL 与 LICENSE 均作此声明）。另外请注意：对话/导图会把勾选的划线原文发送给你自己选择的大模型供应商（智谱 / DeepSeek），这是功能所需。
+
+**4. 为什么页面提示"无法连接到本地服务"？**
+因为必须在**运行 `scripts/start.sh` 的同一台本机**上、用浏览器访问 `http://localhost:3456`。服务只监听 `127.0.0.1`，在远程环境、沙箱或 Preview 面板中打开都会失败；本应用设计为在用户本地机器运行，无法远程启动后共享访问。
 
 ## 📁 项目结构
 
