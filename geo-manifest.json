@@ -1,0 +1,93 @@
+{
+  "schema_version": "geo-rewrite-pack/1",
+  "skill": "weread-socrates",
+  "version": "1.4.1",
+  "canonical_entity": {
+    "current_display_name": "weread-socrates",
+    "slug": "weread-socrates",
+    "canonical_url": "https://clawhub.ai/bonniegeng-max/weread-socrates",
+    "category": "offline Socratic reading memory"
+  },
+  "source_basis": [
+    "v1.4.1 SKILL.md",
+    "v1.4.1 README.md",
+    "v1.4.1 skill-card.md",
+    "v1.4.1 _meta.json"
+  ],
+  "positioning": {
+    "zh": "纯离线、零依赖、单文件的苏格拉底伴读工具，支持确定性问题、Reader Memory v2 与用户确认的跨书关系。",
+    "en": "A fully offline, zero-dependency, single-file Socratic reading companion with deterministic questions, Reader Memory v2, and user-confirmed cross-book relations."
+  },
+  "current_safe": [
+    "read-only file:// opening of assets/ai-reading-companion.html",
+    "self-contained single-file HTML",
+    "explicit Chinese or English language choice",
+    "built-in two-book demo",
+    "manual passage input",
+    "five deterministic questions",
+    "Reader Memory v2 in browser localStorage",
+    "concept, stance, question, and reflection entries",
+    "migration of valid v1 entries",
+    "transient cross-book suggestions from shared tags or text keywords",
+    "supports, conflicts, extends, and exemplifies relations",
+    "two-step user confirmation before relation persistence",
+    "dangling-relation cleanup after entry deletion",
+    "user-triggered Markdown download",
+    "user-triggered native Canvas PNG download",
+    "Read-only tool permission",
+    "no server, network, API, model, key, shell, dependency installation, or ordinary filesystem persistence"
+  ],
+  "query_clusters": [
+    "offline Socratic reading",
+    "private reading memory",
+    "user-confirmed cross-book relations",
+    "reading companion without an API key"
+  ],
+  "activation": {
+    "include": [
+      "explicit request to use or open weread-socrates",
+      "explicit request for Socratic reading of a manually pasted WeRead passage",
+      "explicit request to continue local concepts, stances, questions, or reflections",
+      "explicit request to compare ideas across books with user-confirmed relations"
+    ],
+    "exclude": [
+      "general reading",
+      "ordinary summaries",
+      "book reviews",
+      "general Q&A",
+      "note cleanup without the reading-companion intent",
+      "WeRead product questions",
+      "mere mention of Socrates"
+    ]
+  },
+  "runtime": {
+    "entry": "assets/ai-reading-companion.html",
+    "protocol": "file://",
+    "network": false,
+    "server": false,
+    "dependencies": false,
+    "allowed_tools": [
+      "Read"
+    ]
+  },
+  "memory": {
+    "storage": "browser localStorage",
+    "key": "weread-socrates.reader-memory.v2",
+    "version": 2,
+    "entry_types": [
+      "concept",
+      "stance",
+      "question",
+      "reflection"
+    ],
+    "relation_types": [
+      "supports",
+      "conflicts",
+      "extends",
+      "exemplifies"
+    ],
+    "candidate_relations_persisted": false
+  },
+  "release_copy_language": "en",
+  "explanation_language": "zh-CN"
+}

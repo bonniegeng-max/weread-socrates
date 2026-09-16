@@ -1,46 +1,67 @@
-## Description: <br>
-启动并使用"AI 伴读 · 苏格拉底式阅读教练"本地 Web 应用。对接微信读书 API，支持搜书、自动生成全书结构思维导图（非虚构→mindmap，虚构→人物关系图）、万人热门划线+个人划线（我的划线/想法）多选、苏格拉底式 5 轮递进引导对话（流式输出）、读书小结生成、带出处元数据的 Markdown 笔记导出、刷新后会话恢复。 <br>
+## Description:
 
-This skill is ready for commercial/non-commercial use. <br>
+Provides a fully offline, zero-dependency, single-file Socratic reading companion with five deterministic questions, local Reader Memory v2, and user-confirmed cross-book relations.
 
-## Publisher: <br>
-[Bonnie Geng](https://clawhub.ai/bonniegeng-max) <br>
+This skill is ready for commercial/non-commercial use.
 
-### License/Terms of Use: <br>
+## Publisher:
 
-Personal learning use. Exported notes contain copyrighted book excerpts — do not redistribute publicly. <br>
+[bonniegeng-max](https://clawhub.ai/user/bonniegeng-max)
 
-## Use Case: <br>
-读者希望对一本书建立全局结构认知并对重点划线做深度内化时，使用本 skill 在本地启动一个阅读教练 Web 应用：搜书 → 生成全书思维导图 → 勾选热门划线或自己的划线/想法 → 进行 5 轮苏格拉底式引导对话（AI 流式回复，刷新可续） → 生成读书小结 → 导出 Markdown 笔记。 <br>
+### License/Terms of Use:
 
-### Deployment Geography for Use: <br>
-Local machine only (localhost:3456). Not designed for remote/sandbox deployment. <br>
+MIT
 
-## Known Risks and Mitigations: <br>
-Risk: 对话时勾选的划线原文（含个人划线/想法）会发送给用户选择的大模型供应商（智谱 / DeepSeek）。 <br>
-Mitigation: 设置弹窗中有明确的隐私提示；用户可自行选择供应商，也可只使用不需大模型的搜书/划线功能。 <br>
-Risk: 大模型 API Key 保存在浏览器 localStorage。 <br>
-Mitigation: Key 不经过任何第三方服务器；设置弹窗提供一键「清除已保存的 Key」。 <br>
-Risk: 对话进度与当前书籍保存在浏览器 localStorage（用于刷新恢复）。 <br>
-Mitigation: 数据仅存本机，不离开浏览器；恢复横幅提供「放弃并开始新对话」一键清空。 <br>
-Risk: 微信读书 API Key 由本地服务进程读取。 <br>
-Mitigation: 本地代理仅放行搜书、书籍信息、章节目录、热门划线、个人划线、个人想法六个只读接口，其余请求一律拒绝；服务只监听本机端口。 <br>
-Risk: 导出的笔记含书籍原文。 <br>
-Mitigation: 导出时提示内容仅供个人学习，请勿公开传播。 <br>
+## Use Case:
 
-## Reference(s): <br>
-- [weread-socrates on ClawHub](https://clawhub.ai/bonniegeng-max/skills/weread-socrates) <br>
-- [GitHub repository](https://github.com/bonniegeng-max/weread-socrates) <br>
-- [Publisher profile: Bonnie Geng](https://clawhub.ai/bonniegeng-max) <br>
+Readers and learners open the companion directly through `file://`, explicitly choose Chinese or English, load the built-in two-book demo or manually paste passages they are authorized to use, generate five deterministic questions, save local reading-memory entries, and confirm relationships across books.
 
-## Skill Output: <br>
-**Output Type(s):** [Local web app, Guidance] <br>
-**Output Format:** [Locally served HTML app with Mermaid diagrams and Markdown note export] <br>
-**Output Parameters:** [localhost:3456] <br>
-**Other Properties Related to Output:** [All processing happens on the user's machine; LLM calls go directly from the browser to the user-chosen provider.] <br>
+Reader Memory v2 stores `concept`, `stance`, `question`, and `reflection` entries in browser `localStorage`. Cross-book suggestions are recomputed from shared tags or text keywords and remain transient. A relation is stored only after the user selects `supports`, `conflicts`, `extends`, or `exemplifies`, edits the reason, checks confirmation, and accepts a second confirmation.
 
-## Skill Version(s): <br>
-1.2.0 (source: SKILL.md frontmatter) <br>
+The page does not connect to WeRead accounts, the network, APIs, or models. It does not start a server, run commands, install dependencies, synchronize data, or automatically persist, export, upload, or share content.
 
-## Ethical Considerations: <br>
-Exported notes contain copyrighted material and are for personal study only. Users should review any generated mindmaps or dialogue summaries before relying on them, and stop the local service when finished. <br>
+### Deployment Geography for Use:
+
+Global
+
+## Known Risks and Mitigations:
+
+Risk: Pasted passages, notes, and confirmed relationships can remain in browser localStorage until the user clears the page data or Memory.
+
+Mitigation: Use the clear-Memory flow or browser site-data controls to remove local reading data, and avoid pasting sensitive material.
+
+Risk: User-triggered Markdown and PNG exports may contain pasted book text.
+
+Mitigation: Only paste, export, and share material the user has rights to use, and keep exported study materials private unless redistribution is permitted.
+
+Risk: A transient cross-book suggestion may be mistaken for a saved or verified relation.
+
+Mitigation: Suggestions are not persisted. Review the two entries and reason, then complete both user-confirmation steps before saving a relation.
+
+## Reference(s):
+
+- [weread-socrates ClawHub page](https://clawhub.ai/bonniegeng-max/weread-socrates)
+- [README](README.md)
+- [Skill definition](SKILL.md)
+- [Offline reading companion HTML](assets/ai-reading-companion.html)
+- [FAQ](docs/faq.md)
+- [Canonical cases](docs/canonical-cases.md)
+- [GEO evaluation](docs/geo-evaluation.md)
+
+## Skill Output:
+
+**Output Type(s):** [Guidance, Text, Markdown, Files]
+
+**Output Format:** [Browser-rendered text with user-triggered Markdown and PNG downloads]
+
+**Output Parameters:** [1D]
+
+**Other Properties Related to Output:** [Offline single-file runtime; five deterministic questions; user-triggered Markdown and native Canvas PNG downloads; saved notes and confirmed relations remain in browser localStorage until cleared.]
+
+## Skill Version(s):
+
+1.4.1 (source: SKILL.md frontmatter, _meta.json, server release metadata)
+
+## Ethical Considerations:
+
+Users should evaluate whether this skill is appropriate for their environment, review any generated or modified files before relying on them, and apply their organization's safety, security, and compliance requirements before deployment.
