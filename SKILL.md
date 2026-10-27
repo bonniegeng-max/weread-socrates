@@ -1,7 +1,7 @@
 ---
 name: weread-socrates
-description: 提供纯离线单文件微信读书苏格拉底伴读、Reader Memory v2 与用户确认的跨书关系。仅当用户明确要求 weread-socrates、微信读书伴读或跨书观点对照时调用。
-version: 1.4.1
+description: 微信读书苏格拉底伴读（纯离线单文件）——用提问把你还回原文，而不是替你总结；Reader Memory v2 记住你读到哪、想过什么；跨书关系只在你确认后才建立。想把一本书读成自己的、想被追问而不是被概括、想做跨书观点对照时用我。不抓取微信读书正文、不联网、不需要账号或 Cookie，只读你主动提供的内容；不替代原书阅读。Offline single-file Socratic reading companion for WeRead — question-led reading instead of summaries, Reader Memory v2 that remembers where you are and what you thought, cross-book links created only after your confirmation. Use when you want to read a book as your own, be questioned rather than summarized, or compare ideas across books. No scraping, no network, no account or cookies; uses only content you provide.
+version: 1.4.5
 allowed-tools: Read
 ---
 
